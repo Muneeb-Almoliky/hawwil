@@ -3,6 +3,7 @@ import type { CorridorCurrency } from "./recipients";
 export interface TransferRecord {
   id: string;
   referenceId: string;
+  senderName: string;
   recipientName: string;
   recipientCountry: string;
   amountSar: number;
@@ -18,6 +19,7 @@ export const transferHistory: TransferRecord[] = [
   {
     id: "th-001",
     referenceId: "HAW-2026-0420-001",
+    senderName: "Sara Al-Qahtani",
     recipientName: "Mohammed Al-Mekhlafi",
     recipientCountry: "Yemen",
     amountSar: 1000,
@@ -31,6 +33,7 @@ export const transferHistory: TransferRecord[] = [
   {
     id: "th-002",
     referenceId: "HAW-2026-0424-002",
+    senderName: "Sara Al-Qahtani",
     recipientName: "Ismail Al-Sharihi",
     recipientCountry: "Jordan",
     amountSar: 500,
@@ -51,4 +54,15 @@ export function appendSessionTransfer(record: TransferRecord): void {
 
 export function getFullHistory(): TransferRecord[] {
   return [...sessionHistory, ...transferHistory];
+}
+
+function normalizeReferenceId(referenceId: string): string {
+  return referenceId.trim().toUpperCase();
+}
+
+export function findTransferByReferenceId(referenceId: string): TransferRecord | undefined {
+  const normalizedReferenceId = normalizeReferenceId(referenceId);
+  return getFullHistory().find(
+    (record) => normalizeReferenceId(record.referenceId) === normalizedReferenceId
+  );
 }

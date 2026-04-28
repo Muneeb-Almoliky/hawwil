@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTransferStore } from "./store";
 import { getRecipientById } from "@/data/recipients";
+import { currentUser } from "@/data/currentUser";
 import { convert } from "@/lib/fx";
 import { formatMoney } from "@/lib/format";
 import { BrandHeader } from "@/components/BrandHeader";
@@ -16,10 +17,43 @@ export function StepSuccess() {
   const reset = useTransferStore((s) => s.reset);
 
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const recipient = recipientId ? getRecipientById(recipientId) : null;
   const conversion =
     recipient && amountSar > 0 ? convert(amountSar, recipient.currency) : null;
+
+  function getReceiverLookupPath(): string | null {
+    if (!referenceId || !recipient || !conversion) {
+      return null;
+    }
+
+    const payload = JSON.stringify({
+      referenceId,
+      senderName: currentUser.name,
+      recipientName: recipient.name,
+      recipientCountry: recipient.country,
+      amountSar: conversion.amountSar,
+      receiverAmount: conversion.receiverAmount,
+      receiverCurrency: conversion.receiverCurrency,
+      status: "completed",
+      timestamp: new Date().toISOString(),
+    });
+
+    return `/r/${encodeURIComponent(referenceId)}?payload=${encodeURIComponent(payload)}`;
+  }
+
+  async function handleCopyReceiverLink() {
+    const lookupPath = getReceiverLookupPath();
+    if (!lookupPath) return;
+
+    const absoluteUrl = `${window.location.origin}${lookupPath}`;
+    await navigator.clipboard.writeText(absoluteUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
+
+  const receiverLookupPath = getReceiverLookupPath();
 
   async function handleCopy() {
     if (!referenceId) return;
@@ -77,25 +111,54 @@ export function StepSuccess() {
             <p className="text-sm font-mono font-bold text-stone-950">
               {referenceId}
             </p>
-            <button
-              type="button"
-              onClick={handleCopy}
-              aria-label="Copy reference ID"
-              className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border border-stone-200 hover:bg-stone-50 text-stone-500 hover:text-stone-950 transition-colors"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3 h-3 text-emerald-600" />
-                  <span className="text-emerald-600">Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  Copy
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopy}
+                aria-label="Copy reference ID"
+                className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border border-stone-200 hover:bg-stone-50 text-stone-500 hover:text-stone-950 transition-colors"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    <span className="text-emerald-600">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    Copy ID
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyReceiverLink}
+                aria-label="Copy receiver lookup link"
+                className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
+              >
+                {linkCopied ? (
+                  <>
+                    <Check className="w-3 h-3" />
+                    Link copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    Share link
+                  </>
+                )}
+              </button>
+            </div>
           </div>
+          {receiverLookupPath && (
+            <p className="text-xs text-stone-500 mt-2">
+              Public receiver page:{" "}
+              <Link href={receiverLookupPath} className="font-semibold text-emerald-700 hover:text-emerald-800">
+                open lookup
+              </Link>
+            </p>
+          )}
         </div>
 
         {/* Summary row */}

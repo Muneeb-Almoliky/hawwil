@@ -98,6 +98,7 @@ export default function HomePage() {
             </div>
             <ArrowUpRight className="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition-colors shrink-0" />
           </Link>
+
         </div>
 
         {/* Recent transfers */}

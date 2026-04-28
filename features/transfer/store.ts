@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { generateReferenceId } from "@/lib/format";
 import { getRecipientById } from "@/data/recipients";
+import { currentUser } from "@/data/currentUser";
 import { convert } from "@/lib/fx";
 import type { TransferRecord } from "@/data/history";
 
@@ -55,6 +56,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
       const newRecord: TransferRecord = {
         id: `session-${Date.now()}`,
         referenceId,
+        senderName: currentUser.name,
         recipientName: recipient.name,
         recipientCountry: recipient.country,
         amountSar,
