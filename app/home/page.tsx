@@ -1,13 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { SendHorizonal, History, CheckCircle, ArrowUpRight } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BrandHeader } from "@/components/BrandHeader";
-import { currentUser } from "@/data/currentUser";
-import { transferHistory } from "@/data/history";
 import { formatMoney } from "@/lib/format";
 import type { CorridorCurrency } from "@/data/recipients";
-
-const RECENT = transferHistory.slice(0, 2);
+import {
+  getAuthenticatedProfile,
+  getUserTransfers,
+} from "@/lib/data-access";
 
 const COUNTRY_FLAGS: Record<string, string> = {
   YE: "🇾🇪",
@@ -23,7 +24,14 @@ const COUNTRY_CODES: Record<string, string> = {
   Syria: "SY",
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const profile = await getAuthenticatedProfile();
+  if (!profile) {
+    redirect("/login?next=/home");
+  }
+
+  const recentTransfers = await getUserTransfers(2);
+
   return (
     <AppShell showPanel={false}>
       <BrandHeader />
@@ -33,8 +41,8 @@ export default function HomePage() {
         <div className="flex flex-col gap-1">
           <p className="text-sm text-stone-400">Welcome back</p>
           <h1 className="text-2xl font-black text-stone-950 tracking-tight flex items-center gap-2">
-            {currentUser.name}
-            {currentUser.verified && (
+            {profile.name}
+            {profile.verified && (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
                 <CheckCircle className="w-2.5 h-2.5" />
                 Verified
@@ -54,11 +62,11 @@ export default function HomePage() {
               Available balance
             </p>
             <p className="text-4xl font-black text-white tabular-nums leading-none">
-              {formatMoney(currentUser.balanceSar, "SAR")}
+              {formatMoney(profile.balanceSar, "SAR")}
               <span className="text-xl font-bold text-emerald-300 ml-2">SAR</span>
             </p>
             <p className="text-xs text-emerald-300 mt-2">
-              {currentUser.country} · Verified account
+              {profile.country} · Verified account
             </p>
           </div>
         </div>
@@ -102,7 +110,7 @@ export default function HomePage() {
         </div>
 
         {/* Recent transfers */}
-        {RECENT.length > 0 && (
+        {recentTransfers.length > 0 && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-widest text-stone-400">
@@ -113,7 +121,7 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="flex flex-col gap-2">
-              {RECENT.map((record) => {
+              {recentTransfers.map((record) => {
                 const countryCode = COUNTRY_CODES[record.recipientCountry] ?? "YE";
                 const flag = COUNTRY_FLAGS[countryCode];
                 return (

@@ -2,9 +2,9 @@ import Link from "next/link";
 import { AlertCircle, ArrowLeft, CheckCircle2, Clock3 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BrandHeader } from "@/components/BrandHeader";
-import { findTransferByReferenceId } from "@/data/history";
 import { formatMoney } from "@/lib/format";
 import type { CorridorCurrency } from "@/data/recipients";
+import { getReceiverLookupTransfer } from "@/lib/data-access";
 
 interface ReceiverLookupPayload {
   referenceId: string;
@@ -56,7 +56,7 @@ export default async function ReceiverLookupPage({
   const resolvedSearchParams = await searchParams;
   const decodedReferenceId = decodeURIComponent(referenceId);
   const payloadRecord = parsePayload(resolvedSearchParams.payload);
-  const lookupRecord = findTransferByReferenceId(decodedReferenceId);
+  const lookupRecord = await getReceiverLookupTransfer(decodedReferenceId);
   const record = lookupRecord ?? payloadRecord;
 
   return (

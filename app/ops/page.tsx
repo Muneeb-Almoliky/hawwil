@@ -1,15 +1,12 @@
-"use client";
-
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Activity, ArrowLeft, Globe, Lock, ShieldCheck, TrendingUp } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BrandHeader } from "@/components/BrandHeader";
-import { transferHistory } from "@/data/history";
-import { currentUser } from "@/data/currentUser";
-import { useTransferStore } from "@/features/transfer/store";
 import { formatMoney } from "@/lib/format";
 import { canAccessOpsHub } from "@/lib/access";
 import type { CorridorCurrency } from "@/data/recipients";
+import { getAuthenticatedProfile, getOpsTransfers } from "@/lib/data-access";
 
 const COUNTRY_FLAGS: Record<string, string> = {
   Yemen: "🇾🇪",
@@ -30,14 +27,11 @@ function formatRelativeDate(iso: string): string {
   return `${diffDays}d ago`;
 }
 
-function HubStats({ records }: { records: ReturnType<typeof transferHistory.slice> }) {
+function HubStats({ records }: { records: Awaited<ReturnType<typeof getOpsTransfers>> }) {
   const totalVolume = records.reduce((sum, record) => sum + record.amountSar, 0);
   const avgTicket = records.length > 0 ? Math.round(totalVolume / records.length) : 0;
   const corridorSpread = new Set(records.map((record) => record.recipientCountry)).size;
-  const lastHourTransfers = records.filter((record) => {
-    const age = Date.now() - new Date(record.timestamp).getTime();
-    return age <= 60 * 60 * 1000;
-  }).length;
+  const totalTransfers = records.length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -79,10 +73,10 @@ function HubStats({ records }: { records: ReturnType<typeof transferHistory.slic
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">
-            Last hour
+            Total transfers
           </p>
           <p className="text-xl font-black text-stone-950">
-            {lastHourTransfers} transfer{lastHourTransfers === 1 ? "" : "s"}
+            {totalTransfers} transfer{totalTransfers === 1 ? "" : "s"}
           </p>
         </div>
       </div>
@@ -100,13 +94,14 @@ function HubStats({ records }: { records: ReturnType<typeof transferHistory.slic
   );
 }
 
-export default function OpsPage() {
-  const sessionTransfers = useTransferStore((state) => state.sessionTransfers);
-  const records = [...sessionTransfers, ...transferHistory].sort(
-    (left, right) =>
-      new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
-  );
-  const isAllowed = canAccessOpsHub(currentUser);
+export default async function OpsPage() {
+  const profile = await getAuthenticatedProfile();
+  if (!profile) {
+    redirect("/login?next=/ops");
+  }
+
+  const records = await getOpsTransfers();
+  const isAllowed = profile.role === "ops_admin" || canAccessOpsHub({ id: profile.id });
 
   return (
     <AppShell showPanel={false} rightContent={isAllowed ? <HubStats records={records} /> : undefined} expandMain>

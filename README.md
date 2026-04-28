@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hawwil | حوّل
 
-## Getting Started
+Hawwil is a cross-border remittance app designed for GCC workers sending to Arab corridors, with transparent fees, fixed FX rates, and instant payout visibility.
 
-First, run the development server:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Next.js 16 (App Router) + TypeScript
+- Supabase Auth (magic link + password)
+- Supabase Postgres + RLS
+- Zustand for transfer wizard state
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## What is implemented
 
-## Learn More
+- Authenticated sender flow (`/login`, `/home`, `/transfer`)
+- Persisted transfers with dynamic balance debiting
+- Receiver lookup (`/r/<referenceId>`) and internal operations console (`/ops`)
 
-To learn more about Next.js, take a look at the following resources:
+## Setup
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Copy `.env.example` to `.env.local`.
+2. Fill all Supabase environment variables in `.env.local`.
+3. Run migration SQL:
+   - `supabase/migrations/20260429002000_phase2_core.sql`
+4. Seed demo users:
+   - `pnpm seed:users`
+5. Start app:
+   - `pnpm dev`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Demo Credentials
 
-## Deploy on Vercel
+- `ops@hawwil.demo` / `HawwilDemo123!` (ops admin)
+- `muneeb@hawwil.demo` / `HawwilDemo123!` (sender)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Useful Routes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/` welcome
+- `/login` auth
+- `/home` sender dashboard
+- `/transfer` transfer wizard
+- `/history` sender history
+- `/ops` internal operations console
+- `/r/<referenceId>` public receiver lookup
+
+## Troubleshooting
+
+- `email rate limit exceeded` on `/login`:
+  - Use password sign-in with seeded users, or wait briefly before retrying magic link.
+- `Could not find table public.profiles` when seeding:
+  - Run migration SQL first, then rerun `pnpm seed:users`.
+- Unauthenticated redirect loops:
+  - Check `.env.local` values and restart `pnpm dev`.
+
+## Scripts
+
+- `pnpm dev` start local dev server
+- `pnpm lint` run lint checks
+- `pnpm build` production build check
+- `pnpm seed:users` create/update demo auth users and profiles

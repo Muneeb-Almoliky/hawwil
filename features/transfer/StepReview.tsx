@@ -16,7 +16,9 @@ export function StepReview() {
   const recipientId = useTransferStore((s) => s.recipientId);
   const amountSar = useTransferStore((s) => s.amountSar);
   const isConfirming = useTransferStore((s) => s.isConfirming);
+  const errorMessage = useTransferStore((s) => s.errorMessage);
   const goTo = useTransferStore((s) => s.goTo);
+  const clearError = useTransferStore((s) => s.clearError);
   const confirm = useTransferStore((s) => s.confirm);
 
   const recipient = recipientId ? getRecipientById(recipientId) : null;
@@ -102,6 +104,12 @@ export function StepReview() {
             <span className="font-semibold text-stone-700">licensed payment infrastructure</span>
           </p>
         </div>
+
+        {errorMessage && (
+          <div className="rounded-2xl border border-rose-200 bg-white px-4 py-3">
+            <p className="text-sm font-semibold text-rose-700">{errorMessage}</p>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 pt-2">
@@ -123,7 +131,10 @@ export function StepReview() {
         {!isConfirming && (
           <button
             type="button"
-            onClick={() => goTo(TRANSFER_STEPS.amount)}
+            onClick={() => {
+              clearError();
+              goTo(TRANSFER_STEPS.amount);
+            }}
             className="flex items-center justify-center w-full rounded-2xl border border-stone-200 bg-white shadow-sm hover:bg-stone-50 text-stone-700 font-bold py-4 text-base transition-all active:scale-[0.98]"
           >
             Back

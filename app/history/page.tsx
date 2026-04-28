@@ -1,13 +1,11 @@
-"use client";
-
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft, CheckCircle, TrendingUp, Send, Globe } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BrandHeader } from "@/components/BrandHeader";
-import { transferHistory } from "@/data/history";
-import { useTransferStore } from "@/features/transfer/store";
 import { formatMoney } from "@/lib/format";
 import type { CorridorCurrency } from "@/data/recipients";
+import { getAuthenticatedProfile, getUserTransfers } from "@/lib/data-access";
 
 const COUNTRY_FLAGS: Record<string, string> = {
   YE: "🇾🇪",
@@ -33,7 +31,7 @@ function formatRelativeDate(iso: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function HistoryStats({ records }: { records: ReturnType<typeof transferHistory.slice> }) {
+function HistoryStats({ records }: { records: Awaited<ReturnType<typeof getUserTransfers>> }) {
   const now = new Date();
   const thisMonthRecords = records.filter((r) => {
     const d = new Date(r.timestamp);
@@ -98,9 +96,13 @@ function HistoryStats({ records }: { records: ReturnType<typeof transferHistory.
   );
 }
 
-export default function HistoryPage() {
-  const sessionTransfers = useTransferStore((s) => s.sessionTransfers);
-  const records = [...sessionTransfers, ...transferHistory];
+export default async function HistoryPage() {
+  const profile = await getAuthenticatedProfile();
+  if (!profile) {
+    redirect("/login?next=/history");
+  }
+
+  const records = await getUserTransfers();
 
   return (
     <AppShell showPanel={false} rightContent={<HistoryStats records={records} />} expandMain>
