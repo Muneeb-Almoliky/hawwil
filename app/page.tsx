@@ -1,65 +1,113 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, Zap, ShieldCheck, TrendingDown } from "lucide-react";
+import { AppShell } from "@/components/AppShell";
+import { BrandHeader } from "@/components/BrandHeader";
+import { FX_RATES } from "@/data/fxRates";
+import { computeFee } from "@/lib/fx";
 
-export default function Home() {
+const CORRIDOR_PREVIEW = [
+  { flag: "🇾🇪", to: "Yemen", rate: FX_RATES.YER, currency: "YER", example: 500 },
+  { flag: "🇯🇴", to: "Jordan", rate: FX_RATES.JOD, currency: "JOD", example: 500 },
+  { flag: "🇪🇬", to: "Egypt", rate: FX_RATES.EGP, currency: "EGP", example: 500 },
+  { flag: "🇸🇾", to: "Syria", rate: FX_RATES.SYP, currency: "SYP", example: 500 },
+];
+
+const TRUST_ITEMS = [
+  { icon: Zap, label: "Instant settlement", sub: "Arrives in seconds" },
+  { icon: TrendingDown, label: "Transparent 1.5% fee", sub: "No hidden spreads" },
+  { icon: ShieldCheck, label: "Licensed infrastructure", sub: "Regulated payment rails" },
+];
+
+export default function WelcomePage() {
+  const featured = CORRIDOR_PREVIEW[0];
+  const exampleFee = computeFee(featured.example);
+  const receives = ((featured.example - exampleFee) * featured.rate).toLocaleString("en-US", { maximumFractionDigits: 0 });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <AppShell showPanel={false}>
+      <BrandHeader />
+
+      <div className="flex flex-col gap-10 flex-1">
+        {/* Hero */}
+        <div className="flex flex-col gap-4">
+          <h1 className="text-[2.6rem] font-black text-stone-950 leading-[1.1] tracking-tight">
+            Send money<br />
+            <span className="text-emerald-600">across borders, instantly</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-base text-stone-500 leading-relaxed max-w-sm">
+            Transparent fees, fixed exchange rates, and instant payouts.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Live rate card — Wise-style hero */}
+        <div className="rounded-2xl border border-stone-200 bg-white shadow-sm p-5 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-widest text-stone-400">
+              Featured corridor rate
+            </p>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-0.5">
+              Fixed · No spread
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <p className="text-xs text-stone-500 mb-0.5">You send</p>
+                <p className="text-3xl font-black text-stone-950 tabular-nums">
+                  {featured.example.toLocaleString("en-US")}
+                  <span className="text-lg font-bold text-stone-400 ml-1.5">SAR</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="h-px bg-stone-100 relative">
+              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-white px-3 text-[10px] font-semibold text-stone-400 uppercase tracking-widest">
+                1 SAR = {featured.rate} {featured.currency}
+              </span>
+            </div>
+
+            <div>
+              <p className="text-xs text-stone-500 mb-0.5">Recipient gets</p>
+              <p className="text-3xl font-black text-emerald-600 tabular-nums">
+                {receives}
+                <span className="text-lg font-bold text-emerald-400 ml-1.5">{featured.currency}</span>
+              </p>
+              <p className="text-xs text-stone-400 mt-1">
+                {featured.example - exampleFee} SAR converted · {exampleFee} SAR fee (1.5%)
+              </p>
+            </div>
+          </div>
         </div>
-      </main>
-    </div>
+
+        {/* Trust items */}
+        <div className="flex flex-col gap-3">
+          {TRUST_ITEMS.map(({ icon: Icon, label, sub }) => (
+            <div key={label} className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                <Icon className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-stone-950 leading-none">{label}</p>
+                <p className="text-xs text-stone-400 mt-0.5">{sub}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-auto pt-8">
+        <Link
+          href="/home"
+          className="flex items-center justify-center gap-2 w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 text-base transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
+        >
+          Start transfer
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+        <p className="text-center text-xs text-stone-400 mt-3">
+          GCC · KYC verified · Instant settlement
+        </p>
+      </div>
+    </AppShell>
   );
 }
