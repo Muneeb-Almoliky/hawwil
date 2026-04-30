@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { SendHorizonal, History, CheckCircle, ArrowUpRight } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BrandHeader } from "@/components/BrandHeader";
+import { LogoutButton } from "@/components/LogoutButton";
 import { formatMoney } from "@/lib/format";
 import type { CorridorCurrency } from "@/data/recipients";
 import {
@@ -34,7 +35,7 @@ export default async function HomePage() {
 
   return (
     <AppShell showPanel={false}>
-      <BrandHeader />
+      <BrandHeader actions={<LogoutButton />} />
 
       <div className="flex flex-col gap-8 flex-1">
         {/* Greeting */}
@@ -43,7 +44,7 @@ export default async function HomePage() {
           <h1 className="text-2xl font-black text-stone-950 tracking-tight flex items-center gap-2">
             {profile.name}
             {profile.verified && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-teal-700 bg-teal-50 border border-teal-200 rounded-full px-2 py-0.5">
                 <CheckCircle className="w-2.5 h-2.5" />
                 Verified
               </span>

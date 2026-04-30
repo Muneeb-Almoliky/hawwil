@@ -3,25 +3,31 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useTransferStore } from "./store";
-import { getRecipientById } from "@/data/recipients";
-import { currentUser } from "@/data/currentUser";
 import { convert } from "@/lib/fx";
 import { formatMoney } from "@/lib/format";
-import { BrandHeader } from "@/components/BrandHeader";
 import { CheckCircle, Copy, Check, Zap } from "lucide-react";
 
-export function StepSuccess() {
-  const recipientId = useTransferStore((s) => s.recipientId);
+interface StepSuccessProps {
+  senderName: string;
+}
+
+export function StepSuccess({ senderName }: StepSuccessProps) {
+  const recipient = useTransferStore((s) => s.recipient);
   const amountSar = useTransferStore((s) => s.amountSar);
   const referenceId = useTransferStore((s) => s.referenceId);
+  const sessionTransfers = useTransferStore((s) => s.sessionTransfers);
   const reset = useTransferStore((s) => s.reset);
 
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
-  const recipient = recipientId ? getRecipientById(recipientId) : null;
+  const activeTransfer = sessionTransfers.find(
+    (transfer) => transfer.referenceId === referenceId
+  );
   const conversion =
-    recipient && amountSar > 0 ? convert(amountSar, recipient.currency) : null;
+    recipient && amountSar > 0
+      ? convert(amountSar, recipient.currency)
+      : null;
 
   function getReceiverLookupPath(): string | null {
     if (!referenceId || !recipient || !conversion) {
@@ -30,13 +36,20 @@ export function StepSuccess() {
 
     const payload = JSON.stringify({
       referenceId,
-      senderName: currentUser.name,
+      senderName,
       recipientName: recipient.name,
       recipientCountry: recipient.country,
       amountSar: conversion.amountSar,
       receiverAmount: conversion.receiverAmount,
       receiverCurrency: conversion.receiverCurrency,
-      status: "completed",
+      transferPurpose: "standard",
+      payoutMethod: activeTransfer?.payoutMethod,
+      settlementRail: activeTransfer?.settlementRail ?? "usdc_settlement",
+      settlementUsdc: activeTransfer?.settlementUsdc ?? 0,
+      settlementPartner: activeTransfer?.settlementPartner ?? "Destination Payout Network",
+      routeReason: activeTransfer?.routeReason ?? "Settlement route selected by transfer engine.",
+      pickupCode: activeTransfer?.pickupCode,
+      status: "recipient_action_required",
       timestamp: new Date().toISOString(),
     });
 
@@ -64,8 +77,6 @@ export function StepSuccess() {
 
   return (
     <div className="flex flex-col flex-1 gap-6">
-      <BrandHeader />
-
       {/* Success hero — big and celebratory */}
       <div className="rounded-2xl bg-emerald-600 p-8 flex flex-col items-center text-center gap-4 shadow-md relative overflow-hidden">
         <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/10" />
@@ -192,6 +203,14 @@ export function StepSuccess() {
                 1 SAR = {conversion.rate} {conversion.receiverCurrency}
               </p>
             </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
+                Recipient step
+              </p>
+              <p className="text-sm font-bold text-stone-950">
+                Recipient selects payout method
+              </p>
+            </div>
           </div>
         )}
 
@@ -199,9 +218,13 @@ export function StepSuccess() {
         {recipient && (
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
             <p className="text-xs text-emerald-800 leading-relaxed">
-              <span className="font-bold">{recipient.name}</span> will receive an SMS with a
-              pickup code at{" "}
-              <span className="font-mono font-bold">{recipient.maskedPhone}</span>
+              {(activeTransfer?.notificationStatus ?? "mocked") === "sent"
+                ? `${recipient.name} was notified successfully.`
+                : (activeTransfer?.notificationStatus ?? "mocked") === "partial"
+                ? `Notification was sent partially. ${recipient.name} may need a retry.`
+                : (activeTransfer?.notificationStatus ?? "mocked") === "failed"
+                ? `Notification failed. Please ask ${recipient.name} to use the receiver lookup link.`
+                : `${recipient.name} can use the receiver lookup link to continue.`}
             </p>
           </div>
         )}

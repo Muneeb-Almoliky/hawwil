@@ -25,7 +25,24 @@ export default function WelcomePage() {
 
   return (
     <AppShell showPanel={false}>
-      <BrandHeader />
+      <BrandHeader
+        actions={
+          <>
+            <Link
+              href="/login"
+              className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/signup"
+              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Get started
+            </Link>
+          </>
+        }
+      />
 
       <div className="flex flex-col gap-10 flex-1">
         {/* Hero */}
@@ -98,7 +115,7 @@ export default function WelcomePage() {
 
       <div className="mt-auto pt-8">
         <Link
-          href="/home"
+          href="/signup"
           className="flex items-center justify-center gap-2 w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 text-base transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
         >
           Start transfer

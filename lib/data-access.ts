@@ -28,6 +28,12 @@ export interface ProfileRecord {
   balanceSar: number;
 }
 
+export interface LiquidityPoolRecord {
+  country: string;
+  currency: string;
+  availableBalance: number;
+}
+
 interface TransferRow {
   id: string;
   reference_id: string;
@@ -39,6 +45,15 @@ interface TransferRow {
   receiver_amount: number | string;
   fee_sar: number | string;
   fx_rate: number | string;
+  transfer_purpose?: TransferRecord["transferPurpose"];
+  payout_method?: TransferRecord["payoutMethod"];
+  payout_details?: unknown;
+  settlement_rail?: TransferRecord["settlementRail"];
+  settlement_usdc?: number | string;
+  settlement_partner?: string | null;
+  route_reason?: string | null;
+  pickup_code?: string | null;
+  picked_up_at?: string | null;
   status: TransferRecord["status"];
   created_at: string;
 }
@@ -46,6 +61,39 @@ interface TransferRow {
 function asNumber(value: number | string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function asPayoutDetails(value: unknown): TransferRecord["payoutDetails"] | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const details = value as Record<string, unknown>;
+  const payoutDetails: TransferRecord["payoutDetails"] = {};
+
+  if (typeof details.pickupCity === "string") {
+    payoutDetails.pickupCity = details.pickupCity;
+  }
+  if (typeof details.receiverFullName === "string") {
+    payoutDetails.receiverFullName = details.receiverFullName;
+  }
+  if (typeof details.walletProvider === "string") {
+    payoutDetails.walletProvider = details.walletProvider;
+  }
+  if (typeof details.walletPhoneMasked === "string") {
+    payoutDetails.walletPhoneMasked = details.walletPhoneMasked;
+  }
+  if (typeof details.bankName === "string") {
+    payoutDetails.bankName = details.bankName;
+  }
+  if (typeof details.accountHolder === "string") {
+    payoutDetails.accountHolder = details.accountHolder;
+  }
+  if (typeof details.accountNumberMasked === "string") {
+    payoutDetails.accountNumberMasked = details.accountNumberMasked;
+  }
+
+  return Object.keys(payoutDetails).length > 0 ? payoutDetails : undefined;
 }
 
 function mapTransferRow(row: TransferRow): TransferRecord {
@@ -60,6 +108,15 @@ function mapTransferRow(row: TransferRow): TransferRecord {
     receiverCurrency: row.receiver_currency,
     feeSar: asNumber(row.fee_sar),
     fxRate: asNumber(row.fx_rate),
+    transferPurpose: row.transfer_purpose ?? "standard",
+    payoutMethod: row.payout_method ?? undefined,
+    payoutDetails: asPayoutDetails(row.payout_details),
+    settlementRail: row.settlement_rail ?? "usdc_settlement",
+    settlementUsdc: asNumber(row.settlement_usdc ?? 0),
+    settlementPartner: row.settlement_partner ?? "Destination Payout Network",
+    routeReason: row.route_reason ?? "Settlement route selected by transfer engine.",
+    pickupCode: row.pickup_code ?? undefined,
+    pickedUpAt: row.picked_up_at ?? null,
     status: row.status,
     timestamp: row.created_at,
   };
@@ -129,7 +186,7 @@ export async function getUserTransfers(limit?: number): Promise<TransferRecord[]
   let query = supabase
     .from("transfers")
     .select(
-      "id, reference_id, sender_name, recipient_name, recipient_country, receiver_currency, amount_sar, receiver_amount, fee_sar, fx_rate, status, created_at"
+      "id, reference_id, sender_name, recipient_name, recipient_country, receiver_currency, amount_sar, receiver_amount, fee_sar, fx_rate, transfer_purpose, payout_method, payout_details, settlement_rail, settlement_usdc, settlement_partner, route_reason, pickup_code, picked_up_at, status, created_at"
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
@@ -160,7 +217,7 @@ export async function getOpsTransfers(): Promise<TransferRecord[]> {
   const { data, error } = await supabase
     .from("transfers")
     .select(
-      "id, reference_id, sender_name, recipient_name, recipient_country, receiver_currency, amount_sar, receiver_amount, fee_sar, fx_rate, status, created_at"
+      "id, reference_id, sender_name, recipient_name, recipient_country, receiver_currency, amount_sar, receiver_amount, fee_sar, fx_rate, transfer_purpose, payout_method, payout_details, settlement_rail, settlement_usdc, settlement_partner, route_reason, pickup_code, picked_up_at, status, created_at"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -170,6 +227,60 @@ export async function getOpsTransfers(): Promise<TransferRecord[]> {
   }
 
   return data.map((row) => mapTransferRow(row as TransferRow));
+}
+
+export async function getOpsUserCount(): Promise<number> {
+  if (!isSupabaseConfigured()) {
+    return 2;
+  }
+
+  const profile = await getAuthenticatedProfile();
+  if (!profile || profile.role !== "ops_admin") {
+    return 0;
+  }
+
+  const supabase = await createServerClient();
+  const { count, error } = await supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true });
+
+  if (error) {
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
+export async function getLiquidityPools(): Promise<LiquidityPoolRecord[]> {
+  if (!isSupabaseConfigured()) {
+    return [
+      { country: "Jordan", currency: "JOD", availableBalance: 50000 },
+      { country: "Egypt", currency: "EGP", availableBalance: 500000 },
+      { country: "Yemen", currency: "YER", availableBalance: 10000000 },
+      { country: "Syria", currency: "SYP", availableBalance: 200000000 },
+    ];
+  }
+
+  const profile = await getAuthenticatedProfile();
+  if (!profile || profile.role !== "ops_admin") {
+    return [];
+  }
+
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("liquidity_pools")
+    .select("country, currency, available_balance")
+    .order("country", { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((row) => ({
+    country: row.country,
+    currency: row.currency,
+    availableBalance: asNumber(row.available_balance),
+  }));
 }
 
 export async function getReceiverLookupTransfer(
@@ -208,6 +319,15 @@ export async function getReceiverLookupTransfer(
     amount_sar: number | string;
     receiver_amount: number | string;
     receiver_currency: TransferRecord["receiverCurrency"];
+    transfer_purpose?: TransferRecord["transferPurpose"];
+    payout_method?: TransferRecord["payoutMethod"];
+    payout_details?: unknown;
+    settlement_rail?: TransferRecord["settlementRail"];
+    settlement_usdc?: number | string;
+    settlement_partner?: string | null;
+    route_reason?: string | null;
+    pickup_code?: string | null;
+    picked_up_at?: string | null;
     status: TransferRecord["status"];
     created_at: string;
   };
@@ -223,6 +343,15 @@ export async function getReceiverLookupTransfer(
     receiverCurrency: row.receiver_currency,
     feeSar: 0,
     fxRate: 0,
+    transferPurpose: row.transfer_purpose ?? "standard",
+    payoutMethod: row.payout_method ?? undefined,
+    payoutDetails: asPayoutDetails(row.payout_details),
+    settlementRail: row.settlement_rail ?? "usdc_settlement",
+    settlementUsdc: asNumber(row.settlement_usdc ?? 0),
+    settlementPartner: row.settlement_partner ?? "Destination Payout Network",
+    routeReason: row.route_reason ?? "Settlement route selected by transfer engine.",
+    pickupCode: row.pickup_code ?? undefined,
+    pickedUpAt: row.picked_up_at ?? null,
     status: row.status,
     timestamp: row.created_at,
   };

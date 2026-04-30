@@ -1,10 +1,10 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useTransferStore, TRANSFER_STEPS } from "./store";
-import { recipients } from "@/data/recipients";
+import { CORRIDORS, type Recipient } from "@/data/recipients";
 import { FX_RATES } from "@/data/fxRates";
-import { BrandHeader } from "@/components/BrandHeader";
-import { CheckCircle, Plus } from "lucide-react";
+import { CheckCircle, Loader2, Plus } from "lucide-react";
 
 const COUNTRY_FLAGS: Record<string, string> = {
   YE: "🇾🇪",
@@ -13,21 +13,55 @@ const COUNTRY_FLAGS: Record<string, string> = {
   SY: "🇸🇾",
 };
 
-const AVATAR_COLORS: Record<string, { bg: string; text: string }> = {
-  "r-ammar-ye":  { bg: "bg-teal-100", text: "text-teal-700" },
-  "r-layla-jo":  { bg: "bg-violet-100", text: "text-violet-700" },
-  "r-omar-eg":   { bg: "bg-amber-100", text: "text-amber-700" },
-  "r-yasmin-sy": { bg: "bg-rose-100", text: "text-rose-700" },
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+  Yemen: "+967",
+  Jordan: "+962",
+  Egypt: "+20",
+  Syria: "+963",
 };
+
+interface StepRecipientProps {
+  recipients: Recipient[];
+  isLoadingRecipients: boolean;
+  recipientsError: string | null;
+  onAddRecipient: (payload: {
+    name: string;
+    country: string;
+    phone: string;
+  }) => Promise<void>;
+}
 
 function getInitials(name: string): string {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("");
 }
 
-export function StepRecipient() {
+export function StepRecipient({
+  recipients,
+  isLoadingRecipients,
+  recipientsError,
+  onAddRecipient,
+}: StepRecipientProps) {
   const recipientId = useTransferStore((s) => s.recipientId);
   const setRecipient = useTransferStore((s) => s.setRecipient);
   const goTo = useTransferStore((s) => s.goTo);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const defaultCountry = CORRIDORS[0]?.country ?? "Yemen";
+  const [formState, setFormState] = useState({
+    name: "",
+    country: defaultCountry,
+    phone: COUNTRY_DIAL_CODES[defaultCountry] ?? "",
+  });
+
+  const activeError = formError ?? recipientsError;
+
+  const isContinueDisabled = !recipientId || isLoadingRecipients;
+
+  const corridorOptions = useMemo(
+    () => CORRIDORS.map((corridor) => corridor.country),
+    []
+  );
 
   function handleContinue() {
     goTo(TRANSFER_STEPS.amount);
@@ -35,29 +69,42 @@ export function StepRecipient() {
 
   return (
     <div className="flex flex-col flex-1 gap-6">
-      <BrandHeader showBack backHref="/home" />
-
       <div className="flex flex-col gap-1">
         <h1
-          className="text-3xl font-black text-stone-950 tracking-tight"
+          className="text-2xl font-black text-stone-950 tracking-tight"
           tabIndex={-1}
         >
-          Who are you<br />sending to?
+          Who are you sending to?
         </h1>
         <p className="text-sm text-stone-400">Choose from your saved recipients</p>
       </div>
 
+      {activeError && (
+        <div className="rounded-2xl border border-rose-200 bg-white p-3">
+          <p className="text-sm font-semibold text-rose-700">{activeError}</p>
+        </div>
+      )}
+
       <ul className="flex flex-col gap-3 flex-1">
+        {isLoadingRecipients && (
+          <li className="rounded-2xl border border-stone-200 bg-white p-4 flex items-center gap-2 text-stone-600">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm font-semibold">Loading recipients...</span>
+          </li>
+        )}
+
         {recipients.map((r) => {
           const isSelected = recipientId === r.id;
-          const colors = AVATAR_COLORS[r.id] ?? { bg: "bg-stone-100", text: "text-stone-600" };
+          const colors = isSelected
+            ? { bg: "bg-emerald-50", text: "text-emerald-700" }
+            : { bg: "bg-stone-100", text: "text-stone-600" };
           const rate = FX_RATES[r.currency];
 
           return (
             <li key={r.id}>
               <button
                 type="button"
-                onClick={() => setRecipient(r.id)}
+                onClick={() => setRecipient(r)}
                 className={[
                   "w-full text-left rounded-2xl border p-4 flex items-center gap-4 transition-all",
                   isSelected
@@ -119,22 +166,111 @@ export function StepRecipient() {
         })}
       </ul>
 
-      {/* Add new recipient ghost button */}
+      {showAddForm && (
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setIsSubmitting(true);
+            setFormError(null);
+            try {
+              await onAddRecipient(formState);
+              const resetCountry = corridorOptions[0] ?? "Yemen";
+              setFormState({
+                name: "",
+                country: resetCountry,
+                phone: COUNTRY_DIAL_CODES[resetCountry] ?? "",
+              });
+              setShowAddForm(false);
+            } catch (error) {
+              if (error instanceof Error) {
+                setFormError(error.message);
+              } else {
+                setFormError("Could not add recipient.");
+              }
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
+          className="rounded-2xl border border-stone-200 bg-white shadow-sm p-4 flex flex-col gap-3"
+        >
+          <p className="text-sm font-bold text-stone-950">Add new recipient</p>
+
+          <input
+            value={formState.name}
+            onChange={(event) =>
+              setFormState((state) => ({ ...state, name: event.target.value }))
+            }
+            required
+            placeholder="Full name"
+            className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-950 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+          />
+
+          <select
+            value={formState.country}
+            onChange={(event) => {
+              const newCountry = event.target.value;
+              const dialCode = COUNTRY_DIAL_CODES[newCountry] ?? "";
+              const prevDialCode = COUNTRY_DIAL_CODES[formState.country] ?? "";
+              const phoneIsPrefix =
+                formState.phone === "" || formState.phone === prevDialCode;
+              setFormState((state) => ({
+                ...state,
+                country: newCountry,
+                phone: phoneIsPrefix ? dialCode : state.phone,
+              }));
+            }}
+            className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-950 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+          >
+            {corridorOptions.map((country) => (
+              <option key={country} value={country}>
+                {country} ({COUNTRY_DIAL_CODES[country]})
+              </option>
+            ))}
+          </select>
+
+          <input
+            value={formState.phone}
+            onChange={(event) =>
+              setFormState((state) => ({ ...state, phone: event.target.value }))
+            }
+            required
+            placeholder={COUNTRY_DIAL_CODES[formState.country] ?? "+xxx"}
+            className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-950 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+          />
+
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-bold py-2.5"
+            >
+              {isSubmitting ? "Saving..." : "Save recipient"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAddForm(false)}
+              className="rounded-xl border border-stone-200 bg-white text-stone-700 text-sm font-bold px-4 py-2.5"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
       <button
         type="button"
-        disabled
-        title="Coming in Phase 2"
-        className="flex items-center justify-center gap-2 w-full rounded-2xl border border-dashed border-stone-300 text-stone-400 font-semibold py-4 text-sm transition-colors hover:border-emerald-300 hover:text-emerald-600 cursor-not-allowed"
+        onClick={() => setShowAddForm((value) => !value)}
+        className="flex items-center justify-center gap-2 w-full rounded-2xl border border-dashed border-stone-300 text-stone-500 font-semibold py-4 text-sm transition-colors hover:border-emerald-300 hover:text-emerald-600"
       >
         <Plus className="w-4 h-4" />
-        Add new recipient
+        {showAddForm ? "Hide recipient form" : "Add new recipient"}
       </button>
 
       <div className="pt-2">
         <button
           type="button"
           onClick={handleContinue}
-          disabled={!recipientId}
+          disabled={isContinueDisabled}
           className="flex items-center justify-center w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-stone-200 disabled:text-stone-400 disabled:cursor-not-allowed text-white font-bold py-4 text-base transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
         >
           Continue

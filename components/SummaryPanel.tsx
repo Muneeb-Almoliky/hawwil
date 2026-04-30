@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransferStore, TRANSFER_STEPS } from "@/features/transfer/store";
-import { getRecipientById } from "@/data/recipients";
 import { currentUser } from "@/data/currentUser";
 import { convert } from "@/lib/fx";
 import { formatMoney } from "@/lib/format";
@@ -22,13 +21,12 @@ const COUNTRY_FLAGS: Record<string, string> = {
 };
 
 export function SummaryPanel() {
-  const recipientId = useTransferStore((s) => s.recipientId);
+  const recipient = useTransferStore((s) => s.recipient);
   const amountSar = useTransferStore((s) => s.amountSar);
   const step = useTransferStore((s) => s.step);
 
   const isSuccess = step === TRANSFER_STEPS.success;
   const isRecipientStep = step === TRANSFER_STEPS.recipient;
-  const recipient = recipientId ? getRecipientById(recipientId) : null;
   const hasAmount = amountSar > 0;
   const conversion =
     recipient && hasAmount ? convert(amountSar, recipient.currency) : null;

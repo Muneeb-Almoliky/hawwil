@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { getRecipientById } from "@/data/recipients";
 import type { TransferRecord } from "@/data/history";
+import type { CorridorCurrency } from "@/data/recipients";
 import { convert } from "@/lib/fx";
+import { sendPickupNotifications } from "@/lib/notifications";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+
+export const runtime = "nodejs";
 
 interface CreateTransferPayload {
   recipientId: string;
@@ -40,15 +43,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const recipient = getRecipientById(payload.recipientId);
-  if (!recipient) {
-    return NextResponse.json(
-      { code: "RECIPIENT_NOT_FOUND", message: "Recipient not found." },
-      { status: 404 }
-    );
-  }
-
   const amountSar = asNumber(payload.amountSar);
+
   if (amountSar < 1) {
     return NextResponse.json(
       { code: "INVALID_AMOUNT", message: "Amount must be at least 1 SAR." },
@@ -56,7 +52,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const conversion = convert(amountSar, recipient.currency);
   const referenceId = generateReferenceId();
   const supabase = await createClient();
 
@@ -72,6 +67,23 @@ export async function POST(request: Request) {
     );
   }
 
+  const { data: recipient, error: recipientError } = await supabase
+    .from("recipients")
+    .select("id, full_name, country, currency, phone, masked_phone")
+    .eq("id", payload.recipientId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (recipientError || !recipient) {
+    return NextResponse.json(
+      { code: "RECIPIENT_NOT_FOUND", message: "Recipient not found." },
+      { status: 404 }
+    );
+  }
+
+  const conversion = convert(amountSar, recipient.currency as CorridorCurrency);
+  const settlementUsdc = Math.round((conversion.amountSar / 3.75) * 100) / 100;
+
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("full_name")
@@ -85,19 +97,30 @@ export async function POST(request: Request) {
     );
   }
 
+  const pickupCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const settlementRail = "usdc_settlement";
+  const settlementPartner = `${recipient.country} Payout Network`;
+  const routeReason = "USDC settlement selected for partner settlement.";
   const { data: transferRow, error: transferError } = await supabase.rpc(
     "create_transfer_and_debit",
     {
       p_reference_id: referenceId,
       p_sender_name: profile.full_name,
       p_recipient_id: recipient.id,
-      p_recipient_name: recipient.name,
+      p_recipient_name: recipient.full_name,
       p_recipient_country: recipient.country,
-      p_receiver_currency: conversion.receiverCurrency,
+      p_receiver_currency: recipient.currency,
       p_amount_sar: conversion.amountSar,
       p_fee_sar: conversion.feeSar,
       p_fx_rate: conversion.rate,
       p_receiver_amount: conversion.receiverAmount,
+      p_transfer_purpose: "standard",
+      p_pickup_code: pickupCode,
+      p_payout_method: null,
+      p_settlement_rail: settlementRail,
+      p_settlement_usdc: settlementUsdc,
+      p_settlement_partner: settlementPartner,
+      p_route_reason: routeReason,
     }
   );
 
@@ -114,6 +137,19 @@ export async function POST(request: Request) {
     );
   }
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
+  const receiverUrl = `${appUrl}/r/${encodeURIComponent(referenceId)}`;
+  const notificationBody = [
+    `Hawwil transfer ready.`,
+    `Ref: ${referenceId}`,
+    `Pickup code: ${pickupCode}`,
+    `Track: ${receiverUrl}`,
+  ].join(" ");
+  const notification = await sendPickupNotifications({
+    toPhone: recipient.phone,
+    body: notificationBody,
+  });
+
   const transferRecord: TransferRecord = {
     id: transferRow.id,
     referenceId: transferRow.reference_id,
@@ -125,7 +161,19 @@ export async function POST(request: Request) {
     receiverCurrency: transferRow.receiver_currency,
     feeSar: asNumber(transferRow.fee_sar),
     fxRate: asNumber(transferRow.fx_rate),
-    status: "completed",
+    transferPurpose: "standard",
+    payoutMethod: transferRow.payout_method ?? undefined,
+    settlementRail: transferRow.settlement_rail ?? "usdc_settlement",
+    settlementUsdc: asNumber(transferRow.settlement_usdc),
+    settlementPartner: transferRow.settlement_partner ?? settlementPartner,
+    routeReason: transferRow.route_reason ?? routeReason,
+    notificationChannels: notification.channels,
+    notificationStatus: notification.status,
+    notificationNote: notification.note,
+    recipientMaskedPhone: recipient.masked_phone,
+    pickupCode: transferRow.pickup_code ?? undefined,
+    pickedUpAt: transferRow.picked_up_at ?? null,
+    status: transferRow.status,
     timestamp: transferRow.created_at,
   };
 

@@ -17,6 +17,15 @@ interface AuthUser {
   email?: string;
 }
 
+type SupabaseAdminClient = ReturnType<typeof createClient> & {
+  from: (table: string) => {
+    upsert: (
+      values: Record<string, unknown>,
+      options: { onConflict: string }
+    ) => Promise<{ error: Error | null }>;
+  };
+};
+
 const DEFAULT_SEED_PASSWORD = "HawwilDemo123!";
 
 const SEED_USERS: SeedUser[] = [
@@ -27,14 +36,6 @@ const SEED_USERS: SeedUser[] = [
     country: "Saudi Arabia",
     role: "ops_admin",
     balanceSar: 50_000,
-  },
-  {
-    email: "sara@hawwil.demo",
-    password: DEFAULT_SEED_PASSWORD,
-    fullName: "Sara Al-Qahtani",
-    country: "Saudi Arabia",
-    role: "sender",
-    balanceSar: 12_500,
   },
   {
     email: "muneeb@hawwil.demo",
@@ -55,7 +56,7 @@ function requireEnv(name: string): string {
 }
 
 async function findUserByEmail(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: SupabaseAdminClient,
   email: string
 ): Promise<AuthUser | null> {
   let page = 1;
@@ -85,7 +86,7 @@ async function findUserByEmail(
 }
 
 async function createOrLoadUser(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: SupabaseAdminClient,
   seedUser: SeedUser
 ): Promise<AuthUser> {
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
@@ -121,11 +122,22 @@ async function createOrLoadUser(
 }
 
 async function upsertProfile(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: SupabaseAdminClient,
   userId: string,
   seedUser: SeedUser
 ): Promise<void> {
-  const { error } = await supabaseAdmin.from("profiles").upsert(
+  const profileTable = (
+    supabaseAdmin as unknown as {
+      from: (table: string) => {
+        upsert: (
+          values: Record<string, unknown>,
+          options: { onConflict: string }
+        ) => Promise<{ error: Error | null }>;
+      };
+    }
+  ).from("profiles");
+
+  const { error } = await profileTable.upsert(
     {
       id: userId,
       full_name: seedUser.fullName,
@@ -146,7 +158,10 @@ async function upsertProfile(
 async function seedUsers(): Promise<void> {
   const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const supabaseServiceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
+  const supabaseAdmin = createClient(
+    supabaseUrl,
+    supabaseServiceRoleKey
+  ) as SupabaseAdminClient;
 
   for (const seedUser of SEED_USERS) {
     const authUser = await createOrLoadUser(supabaseAdmin, seedUser);

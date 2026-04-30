@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, CheckCircle, TrendingUp, Send, Globe } from "lucide-react";
+import { ArrowLeft, CheckCircle, TrendingUp, Send, Globe, ChevronDown } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BrandHeader } from "@/components/BrandHeader";
 import { formatMoney } from "@/lib/format";
+import { formatPayoutDetailsSummary, formatPayoutMethod } from "@/lib/payout";
 import type { CorridorCurrency } from "@/data/recipients";
 import { getAuthenticatedProfile, getUserTransfers } from "@/lib/data-access";
+
+const PAGE_SIZE = 10;
 
 const COUNTRY_FLAGS: Record<string, string> = {
   YE: "🇾🇪",
@@ -96,16 +99,24 @@ function HistoryStats({ records }: { records: Awaited<ReturnType<typeof getUserT
   );
 }
 
-export default async function HistoryPage() {
+interface HistoryPageProps {
+  searchParams: Promise<{ all?: string }>;
+}
+
+export default async function HistoryPage({ searchParams }: HistoryPageProps) {
   const profile = await getAuthenticatedProfile();
   if (!profile) {
     redirect("/login?next=/history");
   }
 
-  const records = await getUserTransfers();
+  const params = await searchParams;
+  const showAll = params.all === "1";
+  const records = await getUserTransfers(showAll ? undefined : PAGE_SIZE + 1);
+  const hasMore = !showAll && records.length > PAGE_SIZE;
+  const visibleRecords = showAll ? records : records.slice(0, PAGE_SIZE);
 
   return (
-    <AppShell showPanel={false} rightContent={<HistoryStats records={records} />} expandMain>
+    <AppShell showPanel={false} rightContent={<HistoryStats records={visibleRecords} />} expandMain>
       <BrandHeader />
 
       <div className="flex flex-col gap-6 flex-1">
@@ -120,10 +131,14 @@ export default async function HistoryPage() {
         </div>
 
         <ul className="flex flex-col gap-3">
-          {records.map((record) => {
+          {visibleRecords.map((record) => {
             const countryCode = COUNTRY_CODES[record.recipientCountry] ?? "YE";
             const flag = COUNTRY_FLAGS[countryCode];
             const isSession = record.id.startsWith("session-");
+            const payoutDetailsSummary = formatPayoutDetailsSummary(
+              record.payoutMethod,
+              record.payoutDetails
+            );
 
             return (
               <li
@@ -147,6 +162,14 @@ export default async function HistoryPage() {
                   <p className="text-xs text-stone-400">
                     {record.recipientCountry} · {record.referenceId}
                   </p>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    {formatPayoutMethod(record.payoutMethod)}
+                  </p>
+                  {payoutDetailsSummary && (
+                    <p className="text-xs text-stone-400 mt-0.5">
+                      {payoutDetailsSummary}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-black text-stone-950 tabular-nums">
@@ -168,6 +191,16 @@ export default async function HistoryPage() {
             );
           })}
         </ul>
+
+        {hasMore && (
+          <Link
+            href="/history?all=1"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl border border-stone-200 bg-white shadow-sm hover:bg-stone-50 text-stone-700 font-semibold py-3 text-sm transition-all active:scale-[0.98]"
+          >
+            <ChevronDown className="w-4 h-4" />
+            Show all transfers
+          </Link>
+        )}
       </div>
 
       <div className="mt-auto pt-8">

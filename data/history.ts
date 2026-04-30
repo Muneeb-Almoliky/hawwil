@@ -1,5 +1,15 @@
 import type { CorridorCurrency } from "./recipients";
 
+export interface TransferPayoutDetails {
+  pickupCity?: string;
+  receiverFullName?: string;
+  walletProvider?: string;
+  walletPhoneMasked?: string;
+  bankName?: string;
+  accountHolder?: string;
+  accountNumberMasked?: string;
+}
+
 export interface TransferRecord {
   id: string;
   referenceId: string;
@@ -11,7 +21,25 @@ export interface TransferRecord {
   receiverCurrency: CorridorCurrency;
   feeSar: number;
   fxRate: number;
-  status: "completed";
+  transferPurpose: "standard";
+  payoutMethod?: "cash_pickup" | "bank_account" | "mobile_wallet";
+  payoutDetails?: TransferPayoutDetails;
+  settlementRail: "local_liquidity" | "usdc_settlement";
+  settlementUsdc: number;
+  settlementPartner: string;
+  routeReason: string;
+  notificationChannels?: Array<"sms" | "whatsapp">;
+  notificationStatus?: "mocked" | "sent" | "partial" | "failed";
+  notificationNote?: string;
+  recipientMaskedPhone?: string;
+  pickupCode?: string;
+  pickedUpAt?: string | null;
+  status:
+    | "processing"
+    | "recipient_action_required"
+    | "payout_pending"
+    | "paid_out"
+    | "failed";
   timestamp: string;
 }
 
@@ -27,7 +55,13 @@ export const transferHistory: TransferRecord[] = [
     receiverCurrency: "YER",
     feeSar: 15,
     fxRate: 140,
-    status: "completed",
+    transferPurpose: "standard",
+    payoutMethod: "cash_pickup",
+    settlementRail: "usdc_settlement",
+    settlementUsdc: 266.67,
+    settlementPartner: "Yemen Payout Network",
+    routeReason: "YER payout pool is healthy.",
+    status: "paid_out",
     timestamp: "2026-04-26T14:30:00Z",
   },
   {
@@ -41,7 +75,13 @@ export const transferHistory: TransferRecord[] = [
     receiverCurrency: "JOD",
     feeSar: 7.5,
     fxRate: 0.19,
-    status: "completed",
+    transferPurpose: "standard",
+    payoutMethod: "cash_pickup",
+    settlementRail: "usdc_settlement",
+    settlementUsdc: 133.33,
+    settlementPartner: "Jordan Payout Network",
+    routeReason: "JOD payout pool is healthy.",
+    status: "paid_out",
     timestamp: "2026-04-27T09:15:00Z",
   },
 ];

@@ -2,15 +2,16 @@
 
 import { create } from "zustand";
 import { generateReferenceId } from "@/lib/format";
-import { getRecipientById } from "@/data/recipients";
 import { currentUser } from "@/data/currentUser";
 import { convert } from "@/lib/fx";
 import type { TransferRecord } from "@/data/history";
+import type { Recipient } from "@/data/recipients";
 
 export const TRANSFER_STEPS = {
   recipient: "recipient",
   amount: "amount",
   review: "review",
+  processing: "processing",
   success: "success",
 } as const;
 
@@ -20,29 +21,37 @@ export type TransferStep =
 interface TransferState {
   step: TransferStep;
   recipientId: string | null;
+  recipient: Recipient | null;
   amountSar: number;
   referenceId: string | null;
   isConfirming: boolean;
+  isFinalizing: boolean;
+  requiresServerFinalize: boolean;
   errorMessage: string | null;
   sessionTransfers: TransferRecord[];
-  setRecipient: (id: string) => void;
+  setRecipient: (recipient: Recipient) => void;
   setAmount: (sar: number) => void;
   goTo: (step: TransferStep) => void;
   clearError: () => void;
   confirm: () => Promise<void>;
+  finalizeTransfer: () => Promise<void>;
   reset: () => void;
 }
 
 export const useTransferStore = create<TransferState>((set, get) => ({
   step: TRANSFER_STEPS.recipient,
   recipientId: null,
+  recipient: null,
   amountSar: 0,
   referenceId: null,
   isConfirming: false,
+  isFinalizing: false,
+  requiresServerFinalize: false,
   errorMessage: null,
   sessionTransfers: [],
 
-  setRecipient: (id) => set({ recipientId: id, errorMessage: null }),
+  setRecipient: (recipient) =>
+    set({ recipientId: recipient.id, recipient, errorMessage: null }),
 
   setAmount: (sar) => set({ amountSar: sar, errorMessage: null }),
 
@@ -52,15 +61,17 @@ export const useTransferStore = create<TransferState>((set, get) => ({
 
   confirm: async () => {
     set({ isConfirming: true, errorMessage: null });
-    await new Promise<void>((resolve) => setTimeout(resolve, 2000));
-    const referenceId = generateReferenceId();
-    const { recipientId, amountSar, sessionTransfers } = get();
-    const recipient = recipientId ? getRecipientById(recipientId) : null;
+    const fallbackReferenceId = generateReferenceId();
+    const {
+      recipient,
+      amountSar,
+      sessionTransfers,
+    } = get();
     if (recipient) {
       const conversion = convert(amountSar, recipient.currency);
       const localRecord: TransferRecord = {
         id: `session-${Date.now()}`,
-        referenceId,
+        referenceId: fallbackReferenceId,
         senderName: currentUser.name,
         recipientName: recipient.name,
         recipientCountry: recipient.country,
@@ -69,7 +80,18 @@ export const useTransferStore = create<TransferState>((set, get) => ({
         receiverCurrency: conversion.receiverCurrency,
         feeSar: conversion.feeSar,
         fxRate: conversion.rate,
-        status: "completed",
+        transferPurpose: "standard",
+        payoutMethod: undefined,
+        settlementRail: "usdc_settlement",
+        settlementUsdc: Math.round((conversion.amountSar / 3.75) * 100) / 100,
+        settlementPartner: `${recipient.country} Payout Network`,
+        routeReason: "USDC settlement selected for partner settlement.",
+        notificationChannels: ["sms", "whatsapp"],
+        notificationStatus: "mocked",
+        notificationNote: "Local demo transfer; notification mocked.",
+        recipientMaskedPhone: recipient.maskedPhone,
+        pickupCode: Math.floor(100000 + Math.random() * 900000).toString(),
+        status: "recipient_action_required",
         timestamp: new Date().toISOString(),
       };
 
@@ -87,8 +109,10 @@ export const useTransferStore = create<TransferState>((set, get) => ({
           const result = (await response.json()) as { transfer: TransferRecord };
           set({
             isConfirming: false,
+            isFinalizing: false,
+            requiresServerFinalize: true,
             referenceId: result.transfer.referenceId,
-            step: TRANSFER_STEPS.success,
+            step: TRANSFER_STEPS.processing,
             sessionTransfers: [result.transfer, ...sessionTransfers],
           });
           return;
@@ -98,8 +122,10 @@ export const useTransferStore = create<TransferState>((set, get) => ({
         if (errorResult.code === "SUPABASE_NOT_CONFIGURED") {
           set({
             isConfirming: false,
-            referenceId,
-            step: TRANSFER_STEPS.success,
+            isFinalizing: false,
+            requiresServerFinalize: false,
+            referenceId: fallbackReferenceId,
+            step: TRANSFER_STEPS.processing,
             sessionTransfers: [localRecord, ...sessionTransfers],
           });
           return;
@@ -116,7 +142,71 @@ export const useTransferStore = create<TransferState>((set, get) => ({
         });
       }
     } else {
-      set({ isConfirming: false, referenceId, step: TRANSFER_STEPS.success });
+      set({
+        isConfirming: false,
+        isFinalizing: false,
+        requiresServerFinalize: false,
+        referenceId: fallbackReferenceId,
+        step: TRANSFER_STEPS.processing,
+      });
+    }
+  },
+
+  finalizeTransfer: async () => {
+    const { referenceId, requiresServerFinalize, sessionTransfers } = get();
+    if (!referenceId) {
+      set({ step: TRANSFER_STEPS.success });
+      return;
+    }
+
+    set({ isFinalizing: true, errorMessage: null });
+
+    if (!requiresServerFinalize) {
+      set({ isFinalizing: false, step: TRANSFER_STEPS.success });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/transfers/${encodeURIComponent(referenceId)}/complete`, {
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        const errorResult = (await response.json()) as { message?: string };
+        set({
+          isFinalizing: false,
+          errorMessage: errorResult.message ?? "Could not finalize transfer. Please retry.",
+          step: TRANSFER_STEPS.review,
+        });
+        return;
+      }
+
+      const result = (await response.json()) as { transfer: TransferRecord };
+      const nextTransfers = sessionTransfers.map((transfer) => {
+        if (transfer.referenceId !== result.transfer.referenceId) {
+          return transfer;
+        }
+        return {
+          ...result.transfer,
+          notificationChannels: result.transfer.notificationChannels ?? transfer.notificationChannels,
+          notificationStatus: result.transfer.notificationStatus ?? transfer.notificationStatus,
+          notificationNote: result.transfer.notificationNote ?? transfer.notificationNote,
+          recipientMaskedPhone: result.transfer.recipientMaskedPhone ?? transfer.recipientMaskedPhone,
+        };
+      });
+
+      set({
+        isFinalizing: false,
+        requiresServerFinalize: false,
+        sessionTransfers: nextTransfers,
+        step: TRANSFER_STEPS.success,
+      });
+    } catch {
+      set({
+        isFinalizing: false,
+        errorMessage: "Network issue while finalizing transfer. Please retry.",
+        step: TRANSFER_STEPS.review,
+      });
     }
   },
 
@@ -124,9 +214,12 @@ export const useTransferStore = create<TransferState>((set, get) => ({
     set({
       step: TRANSFER_STEPS.recipient,
       recipientId: null,
+      recipient: null,
       amountSar: 0,
       referenceId: null,
       isConfirming: false,
+      isFinalizing: false,
+      requiresServerFinalize: false,
       errorMessage: null,
     }),
 }));

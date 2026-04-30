@@ -10,6 +10,31 @@ export interface Recipient {
   maskedPhone: string;
 }
 
+export interface CorridorDefinition {
+  country: string;
+  countryCode: string;
+  currency: CorridorCurrency;
+}
+
+export const CORRIDORS: CorridorDefinition[] = [
+  { country: "Yemen", countryCode: "YE", currency: "YER" },
+  { country: "Jordan", countryCode: "JO", currency: "JOD" },
+  { country: "Egypt", countryCode: "EG", currency: "EGP" },
+  { country: "Syria", countryCode: "SY", currency: "SYP" },
+];
+
+export function getCorridorByCountry(country: string): CorridorDefinition | undefined {
+  return CORRIDORS.find((corridor) => corridor.country === country);
+}
+
+export function maskPhone(phone: string): string {
+  if (phone.length < 4) {
+    return phone;
+  }
+  const lastTwoDigits = phone.slice(-2);
+  return `${phone.slice(0, 4)} ••• ••${lastTwoDigits}`;
+}
+
 export const recipients: Recipient[] = [
   {
     id: "r-ammar-ye",

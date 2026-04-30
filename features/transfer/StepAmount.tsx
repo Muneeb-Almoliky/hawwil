@@ -3,15 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown } from "lucide-react";
 import { useTransferStore, TRANSFER_STEPS } from "./store";
-import { getRecipientById } from "@/data/recipients";
-import { convert } from "@/lib/fx";
+import { computeFee, convert } from "@/lib/fx";
 import { formatMoney } from "@/lib/format";
-import { BrandHeader } from "@/components/BrandHeader";
 import { useCountUp } from "@/hooks/useCountUp";
 import { FX_RATES } from "@/data/fxRates";
 
 export function StepAmount() {
-  const recipientId = useTransferStore((s) => s.recipientId);
+  const recipient = useTransferStore((s) => s.recipient);
   const storedAmount = useTransferStore((s) => s.amountSar);
   const setAmount = useTransferStore((s) => s.setAmount);
   const goTo = useTransferStore((s) => s.goTo);
@@ -21,7 +19,6 @@ export function StepAmount() {
   );
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const recipient = recipientId ? getRecipientById(recipientId) : null;
   const parsedAmount = parseFloat(inputValue) || 0;
   const conversion =
     recipient && parsedAmount > 0
@@ -49,8 +46,6 @@ export function StepAmount() {
 
   return (
     <div className="flex flex-col flex-1 gap-6 max-w-lg">
-      <BrandHeader showBack backHref="#" onBack={() => goTo(TRANSFER_STEPS.recipient)} />
-
       <div className="flex flex-col gap-1">
         <h1
           className="text-3xl font-black text-stone-950 tracking-tight"
@@ -131,10 +126,21 @@ export function StepAmount() {
           </div>
         </div>
 
-        {/* Fee note */}
-        <p className="text-xs text-stone-400 mt-6">
-          <span className="font-semibold text-stone-600">1.5% fee</span> deducted before conversion · No hidden spreads
-        </p>
+        <div className="rounded-2xl border border-stone-200 bg-white p-4 mt-6">
+          <p className="text-xs text-stone-500">
+            <span className="font-semibold text-stone-700">1.5% fee</span> deducted before conversion.
+          </p>
+          {parsedAmount > 0 && (
+            <p className="text-xs text-stone-500 mt-1">
+              Typical providers may charge around{" "}
+              <span className="font-semibold text-stone-700">
+                {Math.round(parsedAmount * 0.04 * 10) / 10} SAR
+              </span>
+              ; Hawwil fee is{" "}
+              <span className="font-semibold text-emerald-700">{computeFee(parsedAmount)} SAR</span>.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="pt-2">

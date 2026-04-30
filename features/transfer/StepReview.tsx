@@ -1,19 +1,21 @@
 "use client";
 
 import { useTransferStore, TRANSFER_STEPS } from "./store";
-import { getRecipientById } from "@/data/recipients";
-import { currentUser } from "@/data/currentUser";
 import { convert } from "@/lib/fx";
 import { formatMoney } from "@/lib/format";
-import { BrandHeader } from "@/components/BrandHeader";
 import { Loader2, ShieldCheck } from "lucide-react";
 
 function getInitials(name: string): string {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("");
 }
 
-export function StepReview() {
-  const recipientId = useTransferStore((s) => s.recipientId);
+interface StepReviewProps {
+  senderName: string;
+  senderCountry: string;
+}
+
+export function StepReview({ senderName, senderCountry }: StepReviewProps) {
+  const recipient = useTransferStore((s) => s.recipient);
   const amountSar = useTransferStore((s) => s.amountSar);
   const isConfirming = useTransferStore((s) => s.isConfirming);
   const errorMessage = useTransferStore((s) => s.errorMessage);
@@ -21,14 +23,13 @@ export function StepReview() {
   const clearError = useTransferStore((s) => s.clearError);
   const confirm = useTransferStore((s) => s.confirm);
 
-  const recipient = recipientId ? getRecipientById(recipientId) : null;
   const conversion =
-    recipient && amountSar > 0 ? convert(amountSar, recipient.currency) : null;
+    recipient && amountSar > 0
+      ? convert(amountSar, recipient.currency)
+      : null;
 
   return (
     <div className="flex flex-col flex-1 gap-6">
-      <BrandHeader showBack backHref="#" onBack={() => goTo(TRANSFER_STEPS.amount)} />
-
       <div className="flex flex-col gap-1">
         <h1
           className="text-3xl font-black text-stone-950 tracking-tight"
@@ -44,12 +45,12 @@ export function StepReview() {
         <div className="rounded-2xl border border-stone-200 bg-white shadow-sm divide-y divide-stone-100">
           <div className="flex items-center gap-3 px-5 py-4">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-sm font-black text-emerald-700 shrink-0">
-              {getInitials(currentUser.name)}
+              {getInitials(senderName)}
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">From</p>
-              <p className="text-sm font-bold text-stone-950">{currentUser.name}</p>
-              <p className="text-xs text-stone-400">{currentUser.country}</p>
+              <p className="text-sm font-bold text-stone-950">{senderName}</p>
+              <p className="text-xs text-stone-400">{senderCountry}</p>
             </div>
           </div>
           {recipient && (

@@ -2,7 +2,10 @@ import Link from "next/link";
 import { AlertCircle, ArrowLeft, CheckCircle2, Clock3 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BrandHeader } from "@/components/BrandHeader";
+import { ReceiverClaimCard } from "@/components/receiver/ReceiverClaimCard";
+import { ReceiverPayoutSelector } from "@/components/receiver/ReceiverPayoutSelector";
 import { formatMoney } from "@/lib/format";
+import { formatPayoutDetailsSummary, formatPayoutMethod } from "@/lib/payout";
 import type { CorridorCurrency } from "@/data/recipients";
 import { getReceiverLookupTransfer } from "@/lib/data-access";
 
@@ -14,7 +17,28 @@ interface ReceiverLookupPayload {
   amountSar: number;
   receiverAmount: number;
   receiverCurrency: CorridorCurrency;
-  status: "completed";
+  payoutMethod?: "cash_pickup" | "bank_account" | "mobile_wallet";
+  payoutDetails?: {
+    pickupCity?: string;
+    receiverFullName?: string;
+    walletProvider?: string;
+    walletPhoneMasked?: string;
+    bankName?: string;
+    accountHolder?: string;
+    accountNumberMasked?: string;
+  };
+  settlementRail?: "local_liquidity" | "usdc_settlement";
+  settlementUsdc?: number;
+  settlementPartner?: string;
+  routeReason?: string;
+  pickupCode?: string;
+  pickedUpAt?: string | null;
+  status:
+    | "processing"
+    | "recipient_action_required"
+    | "payout_pending"
+    | "paid_out"
+    | "failed";
   timestamp: string;
 }
 
@@ -48,6 +72,22 @@ function formatAbsoluteDate(iso: string): string {
   });
 }
 
+function getReceiverStatusLabel(status: ReceiverLookupPayload["status"]): string {
+  if (status === "recipient_action_required") {
+    return "Action needed";
+  }
+  if (status === "payout_pending") {
+    return "Payout pending";
+  }
+  if (status === "paid_out") {
+    return "Paid out";
+  }
+  if (status === "failed") {
+    return "Failed";
+  }
+  return "Processing";
+}
+
 export default async function ReceiverLookupPage({
   params,
   searchParams,
@@ -58,6 +98,9 @@ export default async function ReceiverLookupPage({
   const payloadRecord = parsePayload(resolvedSearchParams.payload);
   const lookupRecord = await getReceiverLookupTransfer(decodedReferenceId);
   const record = lookupRecord ?? payloadRecord;
+  const payoutDetailsSummary = record
+    ? formatPayoutDetailsSummary(record.payoutMethod, record.payoutDetails)
+    : null;
 
   return (
     <AppShell showPanel={false}>
@@ -90,7 +133,7 @@ export default async function ReceiverLookupPage({
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
               <div className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-white border border-emerald-100 rounded-full px-2.5 py-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Completed
+                {record.pickedUpAt ? "Picked up" : getReceiverStatusLabel(record.status)}
               </div>
               <p className="text-3xl font-black text-emerald-700 tabular-nums mt-3">
                 {formatMoney(record.receiverAmount, record.receiverCurrency)}
@@ -131,7 +174,34 @@ export default async function ReceiverLookupPage({
                   {formatAbsoluteDate(record.timestamp)}
                 </p>
               </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
+                  Payout method
+                </p>
+                <p className="text-sm text-stone-700">
+                  {formatPayoutMethod(record.payoutMethod)}
+                </p>
+                {payoutDetailsSummary && (
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    {payoutDetailsSummary}
+                  </p>
+                )}
+              </div>
             </div>
+
+            <ReceiverPayoutSelector
+              referenceId={record.referenceId}
+              recipientName={record.recipientName}
+              recipientCountry={record.recipientCountry}
+              isLocked={record.status !== "recipient_action_required"}
+            />
+
+            <ReceiverClaimCard
+              referenceId={record.referenceId}
+              pickupCode={record.pickupCode}
+              isAlreadyPickedUp={Boolean(record.pickedUpAt)}
+              isClaimEnabled={record.status === "payout_pending"}
+            />
           </>
         )}
       </div>

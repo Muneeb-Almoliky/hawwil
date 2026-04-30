@@ -17,10 +17,11 @@ export function computeFee(amountSar: number): number {
 
 export function convert(
   amountSar: number,
-  currency: CorridorCurrency
+  currency: CorridorCurrency,
+  options?: { feeSar?: number }
 ): ConversionResult {
   const rate = FX_RATES[currency];
-  const feeSar = computeFee(amountSar);
+  const feeSar = options?.feeSar ?? computeFee(amountSar);
   const afterFeesSar = Math.max(0, amountSar - feeSar);
   const receiverAmount = afterFeesSar * rate;
   return {
