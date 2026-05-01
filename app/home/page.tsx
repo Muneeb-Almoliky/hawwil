@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SendHorizonal, History, CheckCircle, ArrowUpRight } from "lucide-react";
+import { SendHorizonal, History, CheckCircle, ArrowUpRight, CalendarClock } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BrandHeader } from "@/components/BrandHeader";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -104,6 +104,20 @@ export default async function HomePage() {
             <div className="flex-1">
               <p className="text-sm font-bold text-stone-950">Transfer history</p>
               <p className="text-xs text-stone-400 mt-0.5">View past transfers</p>
+            </div>
+            <ArrowUpRight className="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition-colors shrink-0" />
+          </Link>
+
+          <Link
+            href="/schedules"
+            className="flex items-center gap-4 rounded-2xl border border-stone-200 bg-white shadow-sm hover:border-stone-300 hover:shadow-md p-4 transition-all group active:scale-[0.98]"
+          >
+            <div className="w-10 h-10 rounded-xl bg-stone-100 group-hover:bg-stone-200 flex items-center justify-center transition-colors shrink-0">
+              <CalendarClock className="w-4 h-4 text-stone-500" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-stone-950">Scheduled remittances</p>
+              <p className="text-xs text-stone-400 mt-0.5">Set weekly or monthly sends</p>
             </div>
             <ArrowUpRight className="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition-colors shrink-0" />
           </Link>

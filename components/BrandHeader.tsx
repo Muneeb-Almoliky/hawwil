@@ -16,14 +16,14 @@ export function BrandHeader({
   actions,
 }: BrandHeaderProps) {
   return (
-    <header className="flex items-start justify-between gap-3 mb-8 w-full">
-      <div className="flex items-start gap-3 min-w-0">
+    <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-8 w-full">
+      <div className="flex items-center gap-3 min-w-0">
         {showBack && (
           onBack ? (
             <button
               type="button"
               onClick={onBack}
-              className="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 bg-white shadow-sm text-stone-500 hover:text-stone-950 hover:border-stone-300 transition-all shrink-0 mt-0.5"
+              className="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 bg-white shadow-sm text-stone-500 hover:text-stone-950 hover:border-stone-300 transition-all shrink-0"
               aria-label="Go back"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -31,7 +31,7 @@ export function BrandHeader({
           ) : (
             <Link
               href={backHref}
-              className="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 bg-white shadow-sm text-stone-500 hover:text-stone-950 hover:border-stone-300 transition-all shrink-0 mt-0.5"
+              className="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 bg-white shadow-sm text-stone-500 hover:text-stone-950 hover:border-stone-300 transition-all shrink-0"
               aria-label="Go back"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -53,14 +53,20 @@ export function BrandHeader({
               <path d="M13 3h3v3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-lg font-black text-stone-950 leading-tight">Hawwil</p>
-            <p className="text-sm text-stone-500 leading-tight">Transfer. Instantly. Honestly.</p>
+            <p className="text-sm text-stone-500 leading-tight hidden sm:block">
+              Transfer. Instantly. Honestly.
+            </p>
           </div>
         </Link>
       </div>
 
-      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      {actions && (
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+          {actions}
+        </div>
+      )}
     </header>
   );
 }

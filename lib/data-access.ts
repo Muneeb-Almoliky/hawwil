@@ -15,6 +15,7 @@ import {
   getSupabaseUrl,
 } from "@/lib/supabase/env";
 import { createServiceClient } from "@/lib/supabase/service";
+import type { Recipient } from "@/data/recipients";
 
 type UserRole = "sender" | "ops_admin";
 
@@ -32,6 +33,21 @@ export interface LiquidityPoolRecord {
   country: string;
   currency: string;
   availableBalance: number;
+}
+
+export interface ScheduleRecord {
+  id: string;
+  recipientId: string;
+  recipientName: string;
+  recipientCountry: string;
+  recipientMaskedPhone: string;
+  amountSar: number;
+  frequency: "weekly" | "monthly";
+  nextRunAt: string;
+  startDate: string;
+  endDate: string | null;
+  status: "active" | "paused" | "cancelled";
+  createdAt: string;
 }
 
 interface TransferRow {
@@ -56,6 +72,25 @@ interface TransferRow {
   picked_up_at?: string | null;
   status: TransferRecord["status"];
   created_at: string;
+}
+
+interface ScheduleRow {
+  id: string;
+  recipient_id: string;
+  amount_sar: number | string;
+  frequency: "weekly" | "monthly";
+  next_run_at: string;
+  start_date: string;
+  end_date: string | null;
+  status: "active" | "paused" | "cancelled";
+  created_at: string;
+  recipients:
+    | {
+        full_name: string;
+        country: string;
+        masked_phone: string;
+      }
+    | null;
 }
 
 function asNumber(value: number | string): number {
@@ -119,6 +154,23 @@ function mapTransferRow(row: TransferRow): TransferRecord {
     pickedUpAt: row.picked_up_at ?? null,
     status: row.status,
     timestamp: row.created_at,
+  };
+}
+
+function mapScheduleRow(row: ScheduleRow): ScheduleRecord {
+  return {
+    id: row.id,
+    recipientId: row.recipient_id,
+    recipientName: row.recipients?.full_name ?? "Recipient",
+    recipientCountry: row.recipients?.country ?? "Unknown",
+    recipientMaskedPhone: row.recipients?.masked_phone ?? "N/A",
+    amountSar: asNumber(row.amount_sar),
+    frequency: row.frequency,
+    nextRunAt: row.next_run_at,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    status: row.status,
+    createdAt: row.created_at,
   };
 }
 
@@ -355,4 +407,68 @@ export async function getReceiverLookupTransfer(
     status: row.status,
     timestamp: row.created_at,
   };
+}
+
+export async function getUserRecipientsForScheduling(): Promise<Recipient[]> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const supabase = await createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("recipients")
+    .select("id, full_name, country, country_code, currency, phone, masked_phone")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((row) => ({
+    id: row.id,
+    name: row.full_name,
+    country: row.country,
+    countryCode: row.country_code,
+    currency: row.currency,
+    phone: row.phone,
+    maskedPhone: row.masked_phone,
+  }));
+}
+
+export async function getUserSchedules(): Promise<ScheduleRecord[]> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const supabase = await createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("remittance_schedules")
+    .select(
+      "id, recipient_id, amount_sar, frequency, next_run_at, start_date, end_date, status, created_at, recipients(full_name, country, masked_phone)"
+    )
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((row) => mapScheduleRow(row as unknown as ScheduleRow));
 }

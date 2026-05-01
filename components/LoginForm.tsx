@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Mail, Lock } from "lucide-react";
 
 interface LoginFormProps {
-  action: (formData: FormData) => Promise<never>;
+  action: (formData: FormData) => Promise<void>;
   defaultNext: string;
 }
 
