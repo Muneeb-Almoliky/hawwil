@@ -7,6 +7,8 @@ import { convert } from "@/lib/fx";
 import type { TransferRecord } from "@/data/history";
 import type { Recipient } from "@/data/recipients";
 
+export type TransferKind = "international" | "hawwil_peer";
+
 export const TRANSFER_STEPS = {
   recipient: "recipient",
   amount: "amount",
@@ -20,6 +22,8 @@ export type TransferStep =
 
 interface TransferState {
   step: TransferStep;
+  transferKind: TransferKind;
+  peerUserId: string | null;
   recipientId: string | null;
   recipient: Recipient | null;
   amountSar: number;
@@ -29,6 +33,8 @@ interface TransferState {
   requiresServerFinalize: boolean;
   errorMessage: string | null;
   sessionTransfers: TransferRecord[];
+  setTransferKind: (kind: TransferKind) => void;
+  setPeerRecipient: (peer: { peerUserId: string; name: string; country: string }) => void;
   setRecipient: (recipient: Recipient) => void;
   setAmount: (sar: number) => void;
   goTo: (step: TransferStep) => void;
@@ -40,6 +46,8 @@ interface TransferState {
 
 export const useTransferStore = create<TransferState>((set, get) => ({
   step: TRANSFER_STEPS.recipient,
+  transferKind: "international",
+  peerUserId: null,
   recipientId: null,
   recipient: null,
   amountSar: 0,
@@ -50,8 +58,40 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   errorMessage: null,
   sessionTransfers: [],
 
+  setTransferKind: (kind) =>
+    set({
+      transferKind: kind,
+      peerUserId: null,
+      recipientId: null,
+      recipient: null,
+      errorMessage: null,
+    }),
+
+  setPeerRecipient: (peer) =>
+    set({
+      transferKind: "hawwil_peer",
+      peerUserId: peer.peerUserId,
+      recipientId: `peer:${peer.peerUserId}`,
+      recipient: {
+        id: `peer:${peer.peerUserId}`,
+        name: peer.name,
+        country: peer.country,
+        countryCode: "SA",
+        currency: "SAR",
+        phone: "",
+        maskedPhone: "Hawwil user",
+      },
+      errorMessage: null,
+    }),
+
   setRecipient: (recipient) =>
-    set({ recipientId: recipient.id, recipient, errorMessage: null }),
+    set({
+      transferKind: "international",
+      peerUserId: null,
+      recipientId: recipient.id,
+      recipient,
+      errorMessage: null,
+    }),
 
   setAmount: (sar) => set({ amountSar: sar, errorMessage: null }),
 
@@ -66,36 +106,111 @@ export const useTransferStore = create<TransferState>((set, get) => ({
       recipient,
       amountSar,
       sessionTransfers,
+      transferKind,
+      peerUserId,
     } = get();
     if (recipient) {
-      const conversion = convert(amountSar, recipient.currency);
-      const localRecord: TransferRecord = {
-        id: `session-${Date.now()}`,
-        referenceId: fallbackReferenceId,
-        senderName: currentUser.name,
-        recipientName: recipient.name,
-        recipientCountry: recipient.country,
-        amountSar,
-        receiverAmount: conversion.receiverAmount,
-        receiverCurrency: conversion.receiverCurrency,
-        feeSar: conversion.feeSar,
-        fxRate: conversion.rate,
-        transferPurpose: "standard",
-        payoutMethod: undefined,
-        settlementRail: "usdc_settlement",
-        settlementUsdc: Math.round((conversion.amountSar / 3.75) * 100) / 100,
-        settlementPartner: `${recipient.country} Payout Network`,
-        routeReason: "USDC settlement selected for partner settlement.",
-        notificationChannels: ["sms", "whatsapp"],
-        notificationStatus: "mocked",
-        notificationNote: "Local demo transfer; notification mocked.",
-        recipientMaskedPhone: recipient.maskedPhone,
-        pickupCode: Math.floor(100000 + Math.random() * 900000).toString(),
-        status: "recipient_action_required",
-        timestamp: new Date().toISOString(),
-      };
+      const conversion =
+        transferKind === "hawwil_peer"
+          ? convert(amountSar, "SAR", { feeSar: 0 })
+          : convert(amountSar, recipient.currency);
+      const localRecord: TransferRecord =
+        transferKind === "hawwil_peer"
+          ? {
+              id: `session-${Date.now()}`,
+              referenceId: fallbackReferenceId,
+              senderName: currentUser.name,
+              recipientName: recipient.name,
+              recipientCountry: recipient.country,
+              amountSar,
+              receiverAmount: conversion.receiverAmount,
+              receiverCurrency: "SAR",
+              feeSar: 0,
+              fxRate: 1,
+              transferPurpose: "hawwil_peer",
+              payoutMethod: undefined,
+              settlementRail: "hawwil_balance",
+              settlementUsdc: 0,
+              settlementPartner: "Hawwil",
+              routeReason: "Instant balance transfer between Hawwil accounts.",
+              notificationChannels: undefined,
+              notificationStatus: undefined,
+              notificationNote: undefined,
+              recipientMaskedPhone: undefined,
+              pickupCode: undefined,
+              status: "paid_out",
+              timestamp: new Date().toISOString(),
+            }
+          : {
+              id: `session-${Date.now()}`,
+              referenceId: fallbackReferenceId,
+              senderName: currentUser.name,
+              recipientName: recipient.name,
+              recipientCountry: recipient.country,
+              amountSar,
+              receiverAmount: conversion.receiverAmount,
+              receiverCurrency: conversion.receiverCurrency,
+              feeSar: conversion.feeSar,
+              fxRate: conversion.rate,
+              transferPurpose: "standard",
+              payoutMethod: undefined,
+              settlementRail: "usdc_settlement",
+              settlementUsdc: Math.round((conversion.amountSar / 3.75) * 100) / 100,
+              settlementPartner: `${recipient.country} Payout Network`,
+              routeReason: "USDC settlement selected for partner settlement.",
+              notificationChannels: ["sms", "whatsapp"],
+              notificationStatus: "mocked",
+              notificationNote: "Local demo transfer; notification mocked.",
+              recipientMaskedPhone: recipient.maskedPhone,
+              pickupCode: Math.floor(100000 + Math.random() * 900000).toString(),
+              status: "recipient_action_required",
+              timestamp: new Date().toISOString(),
+            };
 
       try {
+        if (transferKind === "hawwil_peer" && peerUserId) {
+          const response = await fetch("/api/transfers/peer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              peerUserId,
+              amountSar: conversion.amountSar,
+            }),
+          });
+
+          if (response.ok) {
+            const result = (await response.json()) as { transfer: TransferRecord };
+            set({
+              isConfirming: false,
+              isFinalizing: false,
+              requiresServerFinalize: false,
+              referenceId: result.transfer.referenceId,
+              step: TRANSFER_STEPS.processing,
+              sessionTransfers: [result.transfer, ...sessionTransfers],
+            });
+            return;
+          }
+
+          const errorResult = (await response.json()) as { code?: string; message?: string };
+          if (errorResult.code === "SUPABASE_NOT_CONFIGURED") {
+            set({
+              isConfirming: false,
+              isFinalizing: false,
+              requiresServerFinalize: false,
+              referenceId: fallbackReferenceId,
+              step: TRANSFER_STEPS.processing,
+              sessionTransfers: [localRecord, ...sessionTransfers],
+            });
+            return;
+          }
+
+          set({
+            isConfirming: false,
+            errorMessage: errorResult.message ?? "Could not complete transfer. Please retry.",
+          });
+          return;
+        }
+
         const response = await fetch("/api/transfers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -213,6 +328,8 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   reset: () =>
     set({
       step: TRANSFER_STEPS.recipient,
+      transferKind: "international",
+      peerUserId: null,
       recipientId: null,
       recipient: null,
       amountSar: 0,

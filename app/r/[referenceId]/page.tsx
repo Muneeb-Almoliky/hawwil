@@ -27,7 +27,7 @@ interface ReceiverLookupPayload {
     accountHolder?: string;
     accountNumberMasked?: string;
   };
-  settlementRail?: "local_liquidity" | "usdc_settlement";
+  settlementRail?: "local_liquidity" | "usdc_settlement" | "hawwil_balance";
   settlementUsdc?: number;
   settlementPartner?: string;
   routeReason?: string;
@@ -40,6 +40,7 @@ interface ReceiverLookupPayload {
     | "paid_out"
     | "failed";
   timestamp: string;
+  transferPurpose?: "standard" | "zakat" | "sadaqah" | "hawwil_peer";
 }
 
 interface ReceiverLookupPageProps {
@@ -101,6 +102,9 @@ export default async function ReceiverLookupPage({
   const payoutDetailsSummary = record
     ? formatPayoutDetailsSummary(record.payoutMethod, record.payoutDetails)
     : null;
+  const isHawwilPeer =
+    record?.transferPurpose === "hawwil_peer" ||
+    record?.settlementRail === "hawwil_balance";
 
   return (
     <AppShell showPanel={false}>
@@ -130,6 +134,14 @@ export default async function ReceiverLookupPage({
 
         {record && (
           <>
+            {isHawwilPeer && (
+              <div className="rounded-2xl border border-teal-100 bg-teal-50 p-4">
+                <p className="text-sm font-semibold text-teal-800">
+                  This transfer was sent to another Hawwil user&apos;s SAR balance. No pickup or
+                  payout steps are required.
+                </p>
+              </div>
+            )}
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
               <div className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-white border border-emerald-100 rounded-full px-2.5 py-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -174,34 +186,40 @@ export default async function ReceiverLookupPage({
                   {formatAbsoluteDate(record.timestamp)}
                 </p>
               </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
-                  Payout method
-                </p>
-                <p className="text-sm text-stone-700">
-                  {formatPayoutMethod(record.payoutMethod)}
-                </p>
-                {payoutDetailsSummary && (
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    {payoutDetailsSummary}
+              {!isHawwilPeer && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
+                    Payout method
                   </p>
-                )}
-              </div>
+                  <p className="text-sm text-stone-700">
+                    {formatPayoutMethod(record.payoutMethod)}
+                  </p>
+                  {payoutDetailsSummary && (
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      {payoutDetailsSummary}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
-            <ReceiverPayoutSelector
-              referenceId={record.referenceId}
-              recipientName={record.recipientName}
-              recipientCountry={record.recipientCountry}
-              isLocked={record.status !== "recipient_action_required"}
-            />
+            {!isHawwilPeer && (
+              <>
+                <ReceiverPayoutSelector
+                  referenceId={record.referenceId}
+                  recipientName={record.recipientName}
+                  recipientCountry={record.recipientCountry}
+                  isLocked={record.status !== "recipient_action_required"}
+                />
 
-            <ReceiverClaimCard
-              referenceId={record.referenceId}
-              pickupCode={record.pickupCode}
-              isAlreadyPickedUp={Boolean(record.pickedUpAt)}
-              isClaimEnabled={record.status === "payout_pending"}
-            />
+                <ReceiverClaimCard
+                  referenceId={record.referenceId}
+                  pickupCode={record.pickupCode}
+                  isAlreadyPickedUp={Boolean(record.pickedUpAt)}
+                  isClaimEnabled={record.status === "payout_pending"}
+                />
+              </>
+            )}
           </>
         )}
       </div>

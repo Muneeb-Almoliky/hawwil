@@ -8,6 +8,7 @@ export const FX_RATES: Record<CorridorCurrency, number> = {
   JOD: 0.19,
   EGP: 13,
   SYP: 3400,
+  SAR: 1,
 };
 
 export const CURRENCY_LABELS: Record<CorridorCurrency, string> = {
@@ -15,4 +16,5 @@ export const CURRENCY_LABELS: Record<CorridorCurrency, string> = {
   JOD: "Jordanian Dinar",
   EGP: "Egyptian Pound",
   SYP: "Syrian Pound",
+  SAR: "Saudi Riyal",
 };

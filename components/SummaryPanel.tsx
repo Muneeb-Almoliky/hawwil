@@ -18,10 +18,12 @@ const COUNTRY_FLAGS: Record<string, string> = {
   JO: "🇯🇴",
   EG: "🇪🇬",
   SY: "🇸🇾",
+  SA: "🇸🇦",
 };
 
 export function SummaryPanel() {
   const recipient = useTransferStore((s) => s.recipient);
+  const transferKind = useTransferStore((s) => s.transferKind);
   const amountSar = useTransferStore((s) => s.amountSar);
   const step = useTransferStore((s) => s.step);
 
@@ -29,7 +31,11 @@ export function SummaryPanel() {
   const isRecipientStep = step === TRANSFER_STEPS.recipient;
   const hasAmount = amountSar > 0;
   const conversion =
-    recipient && hasAmount ? convert(amountSar, recipient.currency) : null;
+    recipient && hasAmount
+      ? transferKind === "hawwil_peer"
+        ? convert(amountSar, "SAR", { feeSar: 0 })
+        : convert(amountSar, recipient.currency)
+      : null;
   const animatedReceiver = useCountUp(conversion?.receiverAmount ?? 0);
 
   const sendingLabel = isSuccess ? "You sent" : "You're sending";
@@ -132,7 +138,7 @@ export function SummaryPanel() {
           )}
 
           {/* Fee breakdown — only before success */}
-          {conversion && !isSuccess && (
+          {conversion && !isSuccess && transferKind === "international" && (
             <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
               <p className="text-xs font-bold text-stone-600 mb-3">Fee breakdown</p>
               <div className="flex flex-col gap-2 text-xs">
@@ -155,6 +161,14 @@ export function SummaryPanel() {
                   <span>{formatMoney(conversion.afterFeesSar, "SAR")} SAR</span>
                 </div>
               </div>
+            </div>
+          )}
+          {conversion && !isSuccess && transferKind === "hawwil_peer" && (
+            <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
+              <p className="text-xs font-bold text-stone-600 mb-2">Peer transfer</p>
+              <p className="text-xs text-stone-500">
+                No FX and no fee — the amount below is credited to their Hawwil SAR balance.
+              </p>
             </div>
           )}
 

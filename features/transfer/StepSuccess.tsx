@@ -13,6 +13,7 @@ interface StepSuccessProps {
 
 export function StepSuccess({ senderName }: StepSuccessProps) {
   const recipient = useTransferStore((s) => s.recipient);
+  const transferKind = useTransferStore((s) => s.transferKind);
   const amountSar = useTransferStore((s) => s.amountSar);
   const referenceId = useTransferStore((s) => s.referenceId);
   const sessionTransfers = useTransferStore((s) => s.sessionTransfers);
@@ -26,11 +27,13 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
   );
   const conversion =
     recipient && amountSar > 0
-      ? convert(amountSar, recipient.currency)
+      ? transferKind === "hawwil_peer"
+        ? convert(amountSar, "SAR", { feeSar: 0 })
+        : convert(amountSar, recipient.currency)
       : null;
 
   function getReceiverLookupPath(): string | null {
-    if (!referenceId || !recipient || !conversion) {
+    if (transferKind === "hawwil_peer" || !referenceId || !recipient || !conversion) {
       return null;
     }
 
@@ -106,7 +109,7 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
         </div>
 
         <div className="relative flex items-center gap-1.5 bg-white/20 rounded-full px-3 py-1.5">
-          <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
+          <Zap className="w-3 h-3 text-emerald-200 fill-emerald-200" />
           <span className="text-xs font-bold text-white">Arrived instantly</span>
         </div>
       </div>
@@ -142,6 +145,7 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
                 )}
               </button>
 
+              {receiverLookupPath && (
               <button
                 type="button"
                 onClick={handleCopyReceiverLink}
@@ -160,6 +164,7 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
                   </>
                 )}
               </button>
+              )}
             </div>
           </div>
           {receiverLookupPath && (
@@ -189,33 +194,47 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
               </p>
               <p className="text-sm font-bold text-emerald-600">Instant</p>
             </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
-                Fee paid
-              </p>
-              <p className="text-sm font-bold text-stone-950">{conversion.feeSar} SAR</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
-                Rate
-              </p>
-              <p className="text-sm font-bold text-stone-950">
-                1 SAR = {conversion.rate} {conversion.receiverCurrency}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
-                Recipient step
-              </p>
-              <p className="text-sm font-bold text-stone-950">
-                Recipient selects payout method
-              </p>
-            </div>
+            {transferKind === "international" && (
+              <>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
+                    Fee paid
+                  </p>
+                  <p className="text-sm font-bold text-stone-950">{conversion.feeSar} SAR</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
+                    Rate
+                  </p>
+                  <p className="text-sm font-bold text-stone-950">
+                    1 SAR = {conversion.rate} {conversion.receiverCurrency}
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
+                    Recipient step
+                  </p>
+                  <p className="text-sm font-bold text-stone-950">
+                    Recipient selects payout method
+                  </p>
+                </div>
+              </>
+            )}
+            {transferKind === "hawwil_peer" && (
+              <div className="col-span-2">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
+                  Transfer type
+                </p>
+                <p className="text-sm font-bold text-stone-950">
+                  Hawwil balance (no payout link)
+                </p>
+              </div>
+            )}
           </div>
         )}
 
         {/* SMS notification line */}
-        {recipient && (
+        {recipient && transferKind === "international" && (
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
             <p className="text-xs text-emerald-800 leading-relaxed">
               {(activeTransfer?.notificationStatus ?? "mocked") === "sent"
@@ -225,6 +244,13 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
                 : (activeTransfer?.notificationStatus ?? "mocked") === "failed"
                 ? `Notification failed. Please ask ${recipient.name} to use the receiver lookup link.`
                 : `${recipient.name} can use the receiver lookup link to continue.`}
+            </p>
+          </div>
+        )}
+        {recipient && transferKind === "hawwil_peer" && (
+          <div className="rounded-2xl border border-teal-100 bg-teal-50 p-4">
+            <p className="text-xs text-teal-800 leading-relaxed">
+              {`${recipient.name}'s Hawwil SAR balance was updated. They can confirm their new balance on the home screen.`}
             </p>
           </div>
         )}

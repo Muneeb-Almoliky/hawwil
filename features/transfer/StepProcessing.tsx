@@ -10,14 +10,22 @@ export function StepProcessing() {
   const finalizeTransfer = useTransferStore((state) => state.finalizeTransfer);
   const isFinalizing = useTransferStore((state) => state.isFinalizing);
   const referenceId = useTransferStore((state) => state.referenceId);
+  const transferKind = useTransferStore((state) => state.transferKind);
   const processingMessages = useMemo(() => {
+    if (transferKind === "hawwil_peer") {
+      return [
+        "Payment authorized",
+        "Crediting Hawwil balance",
+        "Transfer complete",
+      ];
+    }
     return [
       "Payment authorized",
       "Rate locked",
       "Routing through payout network",
       "Recipient notified to choose payout method",
     ];
-  }, []);
+  }, [transferKind]);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
 
   useEffect(() => {
@@ -82,7 +90,7 @@ export function StepProcessing() {
             {row.isDone ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             ) : row.isCurrent ? (
-              <Loader2 className="w-4 h-4 text-amber-700 animate-spin shrink-0" />
+              <Loader2 className="w-4 h-4 text-teal-600 animate-spin shrink-0" />
             ) : (
               <div className="w-4 h-4 rounded-full border border-stone-300 shrink-0" />
             )}

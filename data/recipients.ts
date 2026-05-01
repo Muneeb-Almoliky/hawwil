@@ -1,4 +1,4 @@
-export type CorridorCurrency = "YER" | "JOD" | "EGP" | "SYP";
+export type CorridorCurrency = "YER" | "JOD" | "EGP" | "SYP" | "SAR";
 
 export interface Recipient {
   id: string;

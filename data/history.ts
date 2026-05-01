@@ -21,10 +21,10 @@ export interface TransferRecord {
   receiverCurrency: CorridorCurrency;
   feeSar: number;
   fxRate: number;
-  transferPurpose: "standard";
+  transferPurpose: "standard" | "zakat" | "sadaqah" | "hawwil_peer";
   payoutMethod?: "cash_pickup" | "bank_account" | "mobile_wallet";
   payoutDetails?: TransferPayoutDetails;
-  settlementRail: "local_liquidity" | "usdc_settlement";
+  settlementRail: "local_liquidity" | "usdc_settlement" | "hawwil_balance";
   settlementUsdc: number;
   settlementPartner: string;
   routeReason: string;

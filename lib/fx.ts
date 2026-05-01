@@ -20,6 +20,19 @@ export function convert(
   currency: CorridorCurrency,
   options?: { feeSar?: number }
 ): ConversionResult {
+  if (currency === "SAR") {
+    const feeSar = options?.feeSar ?? 0;
+    const afterFeesSar = Math.max(0, amountSar - feeSar);
+    return {
+      amountSar,
+      feeSar,
+      afterFeesSar,
+      rate: 1,
+      receiverAmount: afterFeesSar,
+      receiverCurrency: "SAR",
+    };
+  }
+
   const rate = FX_RATES[currency];
   const feeSar = options?.feeSar ?? computeFee(amountSar);
   const afterFeesSar = Math.max(0, amountSar - feeSar);

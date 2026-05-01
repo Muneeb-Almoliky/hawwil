@@ -16,6 +16,7 @@ interface StepReviewProps {
 
 export function StepReview({ senderName, senderCountry }: StepReviewProps) {
   const recipient = useTransferStore((s) => s.recipient);
+  const transferKind = useTransferStore((s) => s.transferKind);
   const amountSar = useTransferStore((s) => s.amountSar);
   const isConfirming = useTransferStore((s) => s.isConfirming);
   const errorMessage = useTransferStore((s) => s.errorMessage);
@@ -25,7 +26,9 @@ export function StepReview({ senderName, senderCountry }: StepReviewProps) {
 
   const conversion =
     recipient && amountSar > 0
-      ? convert(amountSar, recipient.currency)
+      ? transferKind === "hawwil_peer"
+        ? convert(amountSar, "SAR", { feeSar: 0 })
+        : convert(amountSar, recipient.currency)
       : null;
 
   return (
@@ -78,20 +81,26 @@ export function StepReview({ senderName, senderCountry }: StepReviewProps) {
                   <span className="text-sm font-bold text-stone-400 ml-1">SAR</span>
                 </p>
                 <p className="text-xs text-stone-400 mt-0.5">
-                  Includes {conversion.feeSar} SAR Hawwil fee
+                  {transferKind === "hawwil_peer"
+                    ? "No Hawwil fee on peer transfers"
+                    : `Includes ${conversion.feeSar} SAR Hawwil fee`}
                 </p>
               </div>
             </div>
             <div className="flex items-center justify-between px-5 py-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-stone-400 mb-0.5">Recipient receives</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-stone-400 mb-0.5">
+                  {transferKind === "hawwil_peer" ? "Their balance receives" : "Recipient receives"}
+                </p>
                 <p className="text-2xl font-black text-emerald-600 tabular-nums">
                   {formatMoney(conversion.receiverAmount, conversion.receiverCurrency)}
                   <span className="text-sm font-bold text-emerald-400 ml-1">
                     {conversion.receiverCurrency}
                   </span>
                 </p>
-                <p className="text-xs text-emerald-600 mt-0.5 font-semibold">Instantly</p>
+                <p className="text-xs text-emerald-600 mt-0.5 font-semibold">
+                  {transferKind === "hawwil_peer" ? "Instant to their Hawwil balance" : "Instantly"}
+                </p>
               </div>
             </div>
           </div>
@@ -101,8 +110,14 @@ export function StepReview({ senderName, senderCountry }: StepReviewProps) {
         <div className="flex items-center gap-2.5 rounded-2xl border border-stone-100 bg-stone-50 px-4 py-3">
           <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
           <p className="text-xs text-stone-500">
-            This transfer is protected under our{" "}
-            <span className="font-semibold text-stone-700">licensed payment infrastructure</span>
+            {transferKind === "hawwil_peer" ? (
+              "Peer transfers move SAR between verified Hawwil balances only."
+            ) : (
+              <>
+                This transfer is protected under our{" "}
+                <span className="font-semibold text-stone-700">licensed payment infrastructure</span>
+              </>
+            )}
           </p>
         </div>
 

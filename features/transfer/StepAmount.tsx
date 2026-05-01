@@ -10,6 +10,7 @@ import { FX_RATES } from "@/data/fxRates";
 
 export function StepAmount() {
   const recipient = useTransferStore((s) => s.recipient);
+  const transferKind = useTransferStore((s) => s.transferKind);
   const storedAmount = useTransferStore((s) => s.amountSar);
   const setAmount = useTransferStore((s) => s.setAmount);
   const goTo = useTransferStore((s) => s.goTo);
@@ -22,7 +23,9 @@ export function StepAmount() {
   const parsedAmount = parseFloat(inputValue) || 0;
   const conversion =
     recipient && parsedAmount > 0
-      ? convert(parsedAmount, recipient.currency)
+      ? transferKind === "hawwil_peer"
+        ? convert(parsedAmount, "SAR", { feeSar: 0 })
+        : convert(parsedAmount, recipient.currency)
       : null;
   const animatedReceiverAmount = useCountUp(conversion?.receiverAmount ?? 0);
 
@@ -55,7 +58,9 @@ export function StepAmount() {
         </h1>
         {recipient && (
           <p className="text-sm text-stone-400">
-            Sending to {recipient.name} · {recipient.country}
+            {transferKind === "hawwil_peer"
+              ? `Hawwil balance · ${recipient.name}`
+              : `Sending to ${recipient.name} · ${recipient.country}`}
           </p>
         )}
       </div>
@@ -93,9 +98,14 @@ export function StepAmount() {
             <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center shadow-sm">
               <ArrowDown className="w-4 h-4 text-white" />
             </div>
-            {rate && recipient && (
+            {rate && recipient && transferKind === "international" && (
               <span className="text-xs font-semibold text-stone-500 bg-stone-100 border border-stone-200 rounded-full px-2.5 py-0.5">
                 1 SAR = {rate} {recipient.currency}
+              </span>
+            )}
+            {transferKind === "hawwil_peer" && recipient && (
+              <span className="text-xs font-semibold text-stone-500 bg-stone-100 border border-stone-200 rounded-full px-2.5 py-0.5">
+                Same currency · no FX
               </span>
             )}
           </div>
@@ -127,18 +137,27 @@ export function StepAmount() {
         </div>
 
         <div className="rounded-2xl border border-stone-200 bg-white p-4 mt-6">
-          <p className="text-xs text-stone-500">
-            <span className="font-semibold text-stone-700">1.5% fee</span> deducted before conversion.
-          </p>
-          {parsedAmount > 0 && (
-            <p className="text-xs text-stone-500 mt-1">
-              Typical providers may charge around{" "}
-              <span className="font-semibold text-stone-700">
-                {Math.round(parsedAmount * 0.04 * 10) / 10} SAR
-              </span>
-              ; Hawwil fee is{" "}
-              <span className="font-semibold text-emerald-700">{computeFee(parsedAmount)} SAR</span>.
+          {transferKind === "hawwil_peer" ? (
+            <p className="text-xs text-stone-500">
+              <span className="font-semibold text-stone-700">No fee</span> for Hawwil-to-Hawwil balance
+              transfers. The recipient gets exactly what you send.
             </p>
+          ) : (
+            <>
+              <p className="text-xs text-stone-500">
+                <span className="font-semibold text-stone-700">1.5% fee</span> deducted before conversion.
+              </p>
+              {parsedAmount > 0 && (
+                <p className="text-xs text-stone-500 mt-1">
+                  Typical providers may charge around{" "}
+                  <span className="font-semibold text-stone-700">
+                    {Math.round(parsedAmount * 0.04 * 10) / 10} SAR
+                  </span>
+                  ; Hawwil fee is{" "}
+                  <span className="font-semibold text-emerald-700">{computeFee(parsedAmount)} SAR</span>.
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
