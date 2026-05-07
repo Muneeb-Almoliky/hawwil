@@ -45,9 +45,7 @@ export function BrandHeader({
           className="flex items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-100"
           aria-label="Hawwil home"
         >
-          <div className="w-10 h-10 rounded-[1.125rem] bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
-            <HawwilMark className="w-[22px] h-[20px]" title="Hawwil" />
-          </div>
+          <HawwilMark className="w-10 h-10 shrink-0" title="Hawwil" />
           <div className="min-w-0">
             <p className="text-lg font-black text-stone-950 leading-tight">Hawwil</p>
             <p className="text-sm text-stone-500 leading-tight hidden sm:block">
