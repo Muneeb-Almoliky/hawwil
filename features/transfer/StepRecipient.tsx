@@ -24,6 +24,7 @@ interface StepRecipientProps {
   recipients: Recipient[];
   isLoadingRecipients: boolean;
   recipientsError: string | null;
+  peerDeepLinkError?: string | null;
   onAddRecipient: (payload: {
     name: string;
     country: string;
@@ -39,6 +40,7 @@ export function StepRecipient({
   recipients,
   isLoadingRecipients,
   recipientsError,
+  peerDeepLinkError = null,
   onAddRecipient,
 }: StepRecipientProps) {
   const recipientId = useTransferStore((s) => s.recipientId);
@@ -166,6 +168,11 @@ export function StepRecipient({
 
       {transferKind === "hawwil_peer" && (
         <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white shadow-sm p-4">
+          {peerDeepLinkError && (
+            <div className="rounded-xl border border-rose-200 bg-white px-3 py-2">
+              <p className="text-sm font-semibold text-rose-700">{peerDeepLinkError}</p>
+            </div>
+          )}
           <label className="flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-widest text-stone-500">
               Their Hawwil email

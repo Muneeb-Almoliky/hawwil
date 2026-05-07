@@ -34,6 +34,7 @@ export interface TransferRecord {
   recipientMaskedPhone?: string;
   pickupCode?: string;
   pickedUpAt?: string | null;
+  senderNote?: string;
   status:
     | "processing"
     | "recipient_action_required"
@@ -61,6 +62,7 @@ export const transferHistory: TransferRecord[] = [
     settlementUsdc: 266.67,
     settlementPartner: "Yemen Payout Network",
     routeReason: "YER payout pool is healthy.",
+    senderNote: "Family support",
     status: "paid_out",
     timestamp: "2026-04-26T14:30:00Z",
   },

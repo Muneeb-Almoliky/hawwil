@@ -6,13 +6,19 @@ import { AppShell } from "@/components/AppShell";
 import { LoginForm } from "@/components/LoginForm";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isEmailVerified } from "@/lib/auth/email-verification";
+import { getAppOriginFromHeaders } from "@/lib/get-app-origin";
 
 interface LoginPageProps {
-  searchParams: Promise<{ next?: string; error?: string; sent?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; sent?: string; mode?: string }>;
 }
 
 function mapAuthError(message: string): string {
-  if (message.toLowerCase().includes("rate limit")) {
+  const normalizedMessage = message.toLowerCase();
+  if (
+    normalizedMessage.includes("rate limit") ||
+    normalizedMessage.includes("too many requests")
+  ) {
     return "Email rate limit exceeded. Wait a minute or sign in with password.";
   }
   return message;
@@ -25,19 +31,8 @@ function sanitizeNextPath(nextPath: string): string {
   return nextPath;
 }
 
-function getRequestOrigin(headerStore: Headers): string {
-  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (configuredAppUrl) {
-    return configuredAppUrl;
-  }
-
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
-  const protocol = headerStore.get("x-forwarded-proto") ?? "http";
-  if (host) {
-    return `${protocol}://${host}`;
-  }
-
-  return "http://localhost:3000";
+function getInitialMode(mode: string | undefined): "magic" | "password" {
+  return mode === "magic" ? "magic" : "password";
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -47,7 +42,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      redirect(sanitizeNextPath(params.next ?? "/home"));
+      const nextPath = sanitizeNextPath(params.next ?? "/home");
+      if (!isEmailVerified(user)) {
+        redirect(`/verify-email?next=${encodeURIComponent(nextPath)}`);
+      }
+      redirect(nextPath);
     }
   }
 
@@ -61,7 +60,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     const email = String(formData.get("email") ?? "").trim();
     const nextPath = sanitizeNextPath(String(formData.get("next") ?? "/home"));
     const headerStore = await headers();
-    const origin = getRequestOrigin(headerStore);
+    const origin = getAppOriginFromHeaders(headerStore);
 
     if (!email) {
       redirect(`/login?error=${encodeURIComponent("Please enter your email.")}`);
@@ -93,13 +92,21 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         );
       }
 
+      const {
+        data: { user: signedInUser },
+      } = await supabase.auth.getUser();
+
+      if (signedInUser && !isEmailVerified(signedInUser)) {
+        redirect(`/verify-email?next=${encodeURIComponent(nextPath)}`);
+      }
+
       redirect(nextPath);
     }
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
+        emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(nextPath)}`,
         shouldCreateUser: false,
       },
     });
@@ -123,7 +130,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div>
           <h1 className="text-3xl font-black text-stone-950 tracking-tight">Sign in</h1>
           <p className="text-sm text-stone-500 mt-1">
-            Use magic link or password to access Hawwil.
+            Sign in with your password, or use a magic link if you prefer.
           </p>
         </div>
 
@@ -149,6 +156,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <LoginForm
             action={signInWithMagicLink}
             defaultNext={sanitizeNextPath(params.next ?? "/home")}
+            initialMode={getInitialMode(params.mode)}
           />
         </div>
 

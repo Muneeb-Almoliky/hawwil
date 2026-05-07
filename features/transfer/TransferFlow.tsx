@@ -19,6 +19,7 @@ interface TransferFlowProps {
     name: string;
     country: string;
   };
+  initialPeerUserId?: string | null;
 }
 
 const STEP_ORDER = [
@@ -35,10 +36,11 @@ const STEPS_WITH_PANEL = new Set<string>([
   TRANSFER_STEPS.success,
 ]);
 
-export function TransferFlow({ sender }: TransferFlowProps) {
+export function TransferFlow({ sender, initialPeerUserId = null }: TransferFlowProps) {
   const step = useTransferStore((state) => state.step);
   const recipientId = useTransferStore((state) => state.recipientId);
   const setRecipient = useTransferStore((state) => state.setRecipient);
+  const setPeerRecipient = useTransferStore((state) => state.setPeerRecipient);
   const goTo = useTransferStore((state) => state.goTo);
   const reset = useTransferStore((state) => state.reset);
   const currentIndex = STEP_ORDER.indexOf(step as (typeof STEP_ORDER)[number]);
@@ -58,6 +60,47 @@ export function TransferFlow({ sender }: TransferFlowProps) {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [isLoadingRecipients, setIsLoadingRecipients] = useState(true);
   const [recipientsError, setRecipientsError] = useState<string | null>(null);
+  const [peerDeepLinkError, setPeerDeepLinkError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const peerId = initialPeerUserId?.trim();
+    if (!peerId) {
+      return;
+    }
+    let cancelled = false;
+    async function loadPeerFromLink(id: string) {
+      setPeerDeepLinkError(null);
+      try {
+        const response = await fetch(`/api/users/peer/${encodeURIComponent(id)}`, {
+          cache: "no-store",
+        });
+        const result = (await response.json()) as {
+          message?: string;
+          peer?: { id: string; fullName: string; country: string };
+        };
+        if (cancelled) {
+          return;
+        }
+        if (!response.ok || !result.peer) {
+          setPeerDeepLinkError(result.message ?? "Could not load that Hawwil user.");
+          return;
+        }
+        setPeerRecipient({
+          peerUserId: result.peer.id,
+          name: result.peer.fullName,
+          country: result.peer.country,
+        });
+      } catch {
+        if (!cancelled) {
+          setPeerDeepLinkError("Network issue loading that link.");
+        }
+      }
+    }
+    void loadPeerFromLink(peerId);
+    return () => {
+      cancelled = true;
+    };
+  }, [initialPeerUserId, setPeerRecipient]);
 
   useEffect(() => {
     let isMounted = true;
@@ -174,6 +217,7 @@ export function TransferFlow({ sender }: TransferFlowProps) {
             recipients={recipients}
             isLoadingRecipients={isLoadingRecipients}
             recipientsError={recipientsError}
+            peerDeepLinkError={peerDeepLinkError}
             onAddRecipient={async (payload) => {
               const response = await fetch("/api/recipients", {
                 method: "POST",

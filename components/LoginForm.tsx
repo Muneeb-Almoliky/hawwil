@@ -6,10 +6,11 @@ import { Mail, Lock } from "lucide-react";
 interface LoginFormProps {
   action: (formData: FormData) => Promise<void>;
   defaultNext: string;
+  initialMode?: "magic" | "password";
 }
 
-export function LoginForm({ action, defaultNext }: LoginFormProps) {
-  const [mode, setMode] = useState<"magic" | "password">("magic");
+export function LoginForm({ action, defaultNext, initialMode = "password" }: LoginFormProps) {
+  const [mode, setMode] = useState<"magic" | "password">(initialMode);
 
   return (
     <form action={action} className="flex flex-col gap-5">
@@ -81,7 +82,7 @@ export function LoginForm({ action, defaultNext }: LoginFormProps) {
         type="submit"
         className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 transition-colors"
       >
-        {mode === "magic" ? "Send magic link" : "Sign in"}
+        {mode === "magic" ? "Send magic link" : "Sign in with password"}
       </button>
 
       {mode === "magic" && (

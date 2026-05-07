@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import type { TransferRecord } from "@/data/history";
-import { createClient } from "@/lib/supabase/server";
+import { requireVerifiedUser } from "@/lib/auth/require-verified-user";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { normalizeTransferNote } from "@/lib/transfer-note";
 
 export const runtime = "nodejs";
 
 interface PeerTransferPayload {
   peerUserId?: string;
   amountSar?: number;
+  senderNote?: string;
 }
 
 function generateReferenceId(): string {
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
 
   const amountSar = asNumber(payload.amountSar);
   const peerUserId = typeof payload.peerUserId === "string" ? payload.peerUserId.trim() : "";
+  const senderNote = normalizeTransferNote(payload.senderNote) ?? null;
 
   if (!peerUserId) {
     return NextResponse.json(
@@ -58,19 +61,11 @@ export async function POST(request: Request) {
   }
 
   const referenceId = generateReferenceId();
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json(
-      { code: "UNAUTHORIZED", message: "Please sign in again." },
-      { status: 401 }
-    );
+  const auth = await requireVerifiedUser();
+  if ("response" in auth) {
+    return auth.response;
   }
+  const { user, supabase } = auth;
 
   if (peerUserId === user.id) {
     return NextResponse.json(
@@ -85,6 +80,7 @@ export async function POST(request: Request) {
       p_reference_id: referenceId,
       p_recipient_user_id: peerUserId,
       p_amount_sar: amountSar,
+      p_sender_note: senderNote,
     }
   );
 
@@ -125,6 +121,7 @@ export async function POST(request: Request) {
     settlementUsdc: asNumber(transferRow.settlement_usdc ?? 0),
     settlementPartner: transferRow.settlement_partner ?? "Hawwil",
     routeReason: transferRow.route_reason ?? "Instant balance transfer between Hawwil accounts.",
+    senderNote: normalizeTransferNote(transferRow.sender_note ?? undefined),
     notificationChannels: undefined,
     notificationStatus: undefined,
     notificationNote: undefined,

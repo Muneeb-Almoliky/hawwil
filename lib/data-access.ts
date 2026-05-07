@@ -5,6 +5,7 @@ import {
   transferHistory,
   type TransferRecord,
 } from "@/data/history";
+import { isEmailVerified } from "@/lib/auth/email-verification";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   isSupabaseConfigured,
@@ -50,7 +51,7 @@ export interface ScheduleRecord {
   createdAt: string;
 }
 
-interface TransferRow {
+export interface TransferRow {
   id: string;
   reference_id: string;
   sender_name: string;
@@ -70,6 +71,7 @@ interface TransferRow {
   route_reason?: string | null;
   pickup_code?: string | null;
   picked_up_at?: string | null;
+  sender_note?: string | null;
   status: TransferRecord["status"];
   created_at: string;
 }
@@ -131,7 +133,8 @@ function asPayoutDetails(value: unknown): TransferRecord["payoutDetails"] | unde
   return Object.keys(payoutDetails).length > 0 ? payoutDetails : undefined;
 }
 
-function mapTransferRow(row: TransferRow): TransferRecord {
+export function mapTransferRow(row: TransferRow): TransferRecord {
+  const note = row.sender_note?.trim();
   return {
     id: row.id,
     referenceId: row.reference_id,
@@ -152,6 +155,7 @@ function mapTransferRow(row: TransferRow): TransferRecord {
     routeReason: row.route_reason ?? "Settlement route selected by transfer engine.",
     pickupCode: row.pickup_code ?? undefined,
     pickedUpAt: row.picked_up_at ?? null,
+    senderNote: note && note.length > 0 ? note : undefined,
     status: row.status,
     timestamp: row.created_at,
   };
@@ -200,6 +204,10 @@ export async function getAuthenticatedProfile(): Promise<ProfileRecord | null> {
     return null;
   }
 
+  if (!isEmailVerified(user)) {
+    return null;
+  }
+
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("id, full_name, country, currency, verified, role, balance_sar")
@@ -235,10 +243,14 @@ export async function getUserTransfers(limit?: number): Promise<TransferRecord[]
     return [];
   }
 
+  if (!isEmailVerified(user)) {
+    return [];
+  }
+
   let query = supabase
     .from("transfers")
     .select(
-      "id, reference_id, sender_name, recipient_name, recipient_country, receiver_currency, amount_sar, receiver_amount, fee_sar, fx_rate, transfer_purpose, payout_method, payout_details, settlement_rail, settlement_usdc, settlement_partner, route_reason, pickup_code, picked_up_at, status, created_at"
+      "id, reference_id, sender_name, recipient_name, recipient_country, receiver_currency, amount_sar, receiver_amount, fee_sar, fx_rate, transfer_purpose, payout_method, payout_details, settlement_rail, settlement_usdc, settlement_partner, route_reason, pickup_code, picked_up_at, status, created_at, sender_note"
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
@@ -269,7 +281,7 @@ export async function getOpsTransfers(): Promise<TransferRecord[]> {
   const { data, error } = await supabase
     .from("transfers")
     .select(
-      "id, reference_id, sender_name, recipient_name, recipient_country, receiver_currency, amount_sar, receiver_amount, fee_sar, fx_rate, transfer_purpose, payout_method, payout_details, settlement_rail, settlement_usdc, settlement_partner, route_reason, pickup_code, picked_up_at, status, created_at"
+      "id, reference_id, sender_name, recipient_name, recipient_country, receiver_currency, amount_sar, receiver_amount, fee_sar, fx_rate, transfer_purpose, payout_method, payout_details, settlement_rail, settlement_usdc, settlement_partner, route_reason, pickup_code, picked_up_at, status, created_at, sender_note"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -380,9 +392,12 @@ export async function getReceiverLookupTransfer(
     route_reason?: string | null;
     pickup_code?: string | null;
     picked_up_at?: string | null;
+    sender_note?: string | null;
     status: TransferRecord["status"];
     created_at: string;
   };
+
+  const note = row.sender_note?.trim();
 
   return {
     id: `lookup-${row.reference_id}`,
@@ -404,6 +419,7 @@ export async function getReceiverLookupTransfer(
     routeReason: row.route_reason ?? "Settlement route selected by transfer engine.",
     pickupCode: row.pickup_code ?? undefined,
     pickedUpAt: row.picked_up_at ?? null,
+    senderNote: note && note.length > 0 ? note : undefined,
     status: row.status,
     timestamp: row.created_at,
   };
@@ -420,6 +436,10 @@ export async function getUserRecipientsForScheduling(): Promise<Recipient[]> {
   } = await supabase.auth.getUser();
 
   if (!user) {
+    return [];
+  }
+
+  if (!isEmailVerified(user)) {
     return [];
   }
 
@@ -455,6 +475,10 @@ export async function getUserSchedules(): Promise<ScheduleRecord[]> {
   } = await supabase.auth.getUser();
 
   if (!user) {
+    return [];
+  }
+
+  if (!isEmailVerified(user)) {
     return [];
   }
 

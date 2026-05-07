@@ -10,6 +10,8 @@ import {
   getAuthenticatedProfile,
   getUserTransfers,
 } from "@/lib/data-access";
+import { ReceivePeerQrCard } from "@/components/ReceivePeerQrCard";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 const COUNTRY_FLAGS: Record<string, string> = {
   YE: "🇾🇪",
@@ -67,7 +69,10 @@ export default async function HomePage() {
               <span className="text-xl font-bold text-emerald-300 ml-2">SAR</span>
             </p>
             <p className="text-xs text-emerald-300 mt-2">
-              {profile.country} · Verified account
+              {profile.country} · Balance in SAR
+            </p>
+            <p className="text-[10px] text-emerald-200/90 mt-1 max-w-md leading-relaxed">
+              More wallet and currency options are planned for a future update.
             </p>
           </div>
         </div>
@@ -124,47 +129,76 @@ export default async function HomePage() {
 
         </div>
 
-        {/* Recent transfers */}
-        {recentTransfers.length > 0 && (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-widest text-stone-400">
-                Recent
-              </p>
-              <Link href="/history" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5">
-                See all <ArrowUpRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="flex flex-col gap-2">
-              {recentTransfers.map((record) => {
-                const countryCode = COUNTRY_CODES[record.recipientCountry] ?? "YE";
-                const flag = COUNTRY_FLAGS[countryCode];
-                return (
-                  <div
-                    key={record.id}
-                    className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white shadow-sm p-4"
+        {(isSupabaseConfigured() || recentTransfers.length > 0) && (
+          <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:p-5 flex flex-col gap-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-stone-400">
+              Activity
+            </p>
+
+            {isSupabaseConfigured() ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                  Receive
+                </p>
+                <ReceivePeerQrCard hawwilUserId={profile.id} variant="embedded" />
+              </div>
+            ) : null}
+
+            {recentTransfers.length > 0 ? (
+              <div
+                className={
+                  isSupabaseConfigured()
+                    ? "flex flex-col gap-3 border-t border-stone-200 pt-5"
+                    : "flex flex-col gap-3"
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                    Recent
+                  </p>
+                  <Link
+                    href="/history"
+                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center text-lg shrink-0">
-                      {flag}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-stone-950 truncate">
-                        {record.recipientName}
-                      </p>
-                      <p className="text-xs text-stone-400">{record.referenceId}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-stone-950">
-                        {formatMoney(record.amountSar, "SAR")} SAR
-                      </p>
-                      <p className="text-xs text-stone-400">
-                        {formatMoney(record.receiverAmount, record.receiverCurrency as CorridorCurrency)} {record.receiverCurrency}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    See all <ArrowUpRight className="w-3 h-3" />
+                  </Link>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {recentTransfers.map((record) => {
+                    const countryCode = COUNTRY_CODES[record.recipientCountry] ?? "YE";
+                    const flag = COUNTRY_FLAGS[countryCode];
+                    return (
+                      <div
+                        key={record.id}
+                        className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-4 shadow-none"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center text-lg shrink-0">
+                          {flag}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-stone-950 truncate">
+                            {record.recipientName}
+                          </p>
+                          <p className="text-xs text-stone-400">{record.referenceId}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-stone-950">
+                            {formatMoney(record.amountSar, "SAR")} SAR
+                          </p>
+                          <p className="text-xs text-stone-400">
+                            {formatMoney(
+                              record.receiverAmount,
+                              record.receiverCurrency as CorridorCurrency
+                            )}{" "}
+                            {record.receiverCurrency}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

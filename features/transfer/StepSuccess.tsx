@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTransferStore } from "./store";
 import { convert } from "@/lib/fx";
 import { formatMoney } from "@/lib/format";
 import { CheckCircle, Copy, Check, Zap } from "lucide-react";
+import { toast } from "sonner";
+import { QrCodeBlock } from "@/components/QrCodeBlock";
+import { TransferReceiptDownload } from "@/components/TransferReceiptDownload";
 
 interface StepSuccessProps {
   senderName: string;
@@ -21,10 +24,13 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
 
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [receiverShareUrl, setReceiverShareUrl] = useState("");
 
   const activeTransfer = sessionTransfers.find(
     (transfer) => transfer.referenceId === referenceId
   );
+  const persistedTransfer =
+    activeTransfer && !activeTransfer.id.startsWith("session-") ? activeTransfer : null;
   const conversion =
     recipient && amountSar > 0
       ? transferKind === "hawwil_peer"
@@ -53,10 +59,17 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
       routeReason: activeTransfer?.routeReason ?? "Settlement route selected by transfer engine.",
       pickupCode: activeTransfer?.pickupCode,
       status: "recipient_action_required",
-      timestamp: new Date().toISOString(),
+      timestamp: activeTransfer?.timestamp ?? "",
     });
 
     return `/r/${encodeURIComponent(referenceId)}?payload=${encodeURIComponent(payload)}`;
+  }
+
+  function getReceiverQrPath(): string | null {
+    if (transferKind === "hawwil_peer" || !referenceId) {
+      return null;
+    }
+    return `/r/${encodeURIComponent(referenceId)}`;
   }
 
   async function handleCopyReceiverLink() {
@@ -66,15 +79,26 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
     const absoluteUrl = `${window.location.origin}${lookupPath}`;
     await navigator.clipboard.writeText(absoluteUrl);
     setLinkCopied(true);
+    toast.success("Share link copied");
     setTimeout(() => setLinkCopied(false), 2000);
   }
 
   const receiverLookupPath = getReceiverLookupPath();
+  const receiverQrPath = getReceiverQrPath();
+
+  useEffect(() => {
+    if (!receiverQrPath) {
+      setReceiverShareUrl("");
+      return;
+    }
+    setReceiverShareUrl(`${window.location.origin}${receiverQrPath}`);
+  }, [receiverQrPath]);
 
   async function handleCopy() {
     if (!referenceId) return;
     await navigator.clipboard.writeText(referenceId);
     setCopied(true);
+    toast.success("Reference copied");
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -125,7 +149,7 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
             <p className="text-sm font-mono font-bold text-stone-950">
               {referenceId}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 justify-end">
               <button
                 type="button"
                 onClick={handleCopy}
@@ -144,6 +168,10 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
                   </>
                 )}
               </button>
+
+              {referenceId && persistedTransfer ? (
+                <TransferReceiptDownload referenceId={referenceId} />
+              ) : null}
 
               {receiverLookupPath && (
               <button
@@ -175,6 +203,14 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
               </Link>
             </p>
           )}
+          {receiverShareUrl ? (
+            <div className="mt-4 flex justify-center">
+              <QrCodeBlock
+                value={receiverShareUrl}
+                caption="Recipient can scan to open the public receiver page"
+              />
+            </div>
+          ) : null}
         </div>
 
         {/* Summary row */}
@@ -230,6 +266,14 @@ export function StepSuccess({ senderName }: StepSuccessProps) {
                 </p>
               </div>
             )}
+            {activeTransfer?.senderNote ? (
+              <div className="col-span-2">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
+                  Your note
+                </p>
+                <p className="text-sm font-bold text-stone-950">{activeTransfer.senderNote}</p>
+              </div>
+            ) : null}
           </div>
         )}
 

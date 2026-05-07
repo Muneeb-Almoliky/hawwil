@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { HawwilMark } from "@/components/HawwilMark";
 
 interface BrandHeaderProps {
   showBack?: boolean;
@@ -44,14 +45,8 @@ export function BrandHeader({
           className="flex items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-100"
           aria-label="Hawwil home"
         >
-          <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm shrink-0">
-            <svg width="20" height="18" viewBox="0 0 20 18" fill="none" aria-hidden="true">
-              {/* H letterform */}
-              <path d="M2 2v14M7 2v14M2 9h5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              {/* Diagonal send arrow */}
-              <path d="M11.5 8L16 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-              <path d="M13 3h3v3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <div className="w-10 h-10 rounded-[1.125rem] bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
+            <HawwilMark className="w-[22px] h-[20px]" title="Hawwil" />
           </div>
           <div className="min-w-0">
             <p className="text-lg font-black text-stone-950 leading-tight">Hawwil</p>

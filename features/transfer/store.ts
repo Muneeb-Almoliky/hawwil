@@ -4,6 +4,8 @@ import { create } from "zustand";
 import { generateReferenceId } from "@/lib/format";
 import { currentUser } from "@/data/currentUser";
 import { convert } from "@/lib/fx";
+import { normalizeTransferNote } from "@/lib/transfer-note";
+import { toast } from "sonner";
 import type { TransferRecord } from "@/data/history";
 import type { Recipient } from "@/data/recipients";
 
@@ -33,7 +35,9 @@ interface TransferState {
   requiresServerFinalize: boolean;
   errorMessage: string | null;
   sessionTransfers: TransferRecord[];
+  transferNote: string;
   setTransferKind: (kind: TransferKind) => void;
+  setTransferNote: (note: string) => void;
   setPeerRecipient: (peer: { peerUserId: string; name: string; country: string }) => void;
   setRecipient: (recipient: Recipient) => void;
   setAmount: (sar: number) => void;
@@ -57,6 +61,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   requiresServerFinalize: false,
   errorMessage: null,
   sessionTransfers: [],
+  transferNote: "",
 
   setTransferKind: (kind) =>
     set({
@@ -66,6 +71,8 @@ export const useTransferStore = create<TransferState>((set, get) => ({
       recipient: null,
       errorMessage: null,
     }),
+
+  setTransferNote: (note) => set({ transferNote: note }),
 
   setPeerRecipient: (peer) =>
     set({
@@ -108,7 +115,9 @@ export const useTransferStore = create<TransferState>((set, get) => ({
       sessionTransfers,
       transferKind,
       peerUserId,
+      transferNote,
     } = get();
+    const senderNote = normalizeTransferNote(transferNote);
     if (recipient) {
       const conversion =
         transferKind === "hawwil_peer"
@@ -138,6 +147,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
               notificationNote: undefined,
               recipientMaskedPhone: undefined,
               pickupCode: undefined,
+              senderNote,
               status: "paid_out",
               timestamp: new Date().toISOString(),
             }
@@ -163,6 +173,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
               notificationNote: "Local demo transfer; notification mocked.",
               recipientMaskedPhone: recipient.maskedPhone,
               pickupCode: Math.floor(100000 + Math.random() * 900000).toString(),
+              senderNote,
               status: "recipient_action_required",
               timestamp: new Date().toISOString(),
             };
@@ -175,6 +186,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
             body: JSON.stringify({
               peerUserId,
               amountSar: conversion.amountSar,
+              senderNote,
             }),
           });
 
@@ -188,6 +200,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
               step: TRANSFER_STEPS.processing,
               sessionTransfers: [result.transfer, ...sessionTransfers],
             });
+            toast.success("Transfer sent");
             return;
           }
 
@@ -208,6 +221,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
             isConfirming: false,
             errorMessage: errorResult.message ?? "Could not complete transfer. Please retry.",
           });
+          toast.error(errorResult.message ?? "Could not complete transfer.");
           return;
         }
 
@@ -217,6 +231,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
           body: JSON.stringify({
             recipientId: recipient.id,
             amountSar: conversion.amountSar,
+            senderNote,
           }),
         });
 
@@ -230,6 +245,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
             step: TRANSFER_STEPS.processing,
             sessionTransfers: [result.transfer, ...sessionTransfers],
           });
+          toast.success("Transfer submitted");
           return;
         }
 
@@ -250,11 +266,13 @@ export const useTransferStore = create<TransferState>((set, get) => ({
           isConfirming: false,
           errorMessage: errorResult.message ?? "Could not complete transfer. Please retry.",
         });
+        toast.error(errorResult.message ?? "Could not complete transfer.");
       } catch {
         set({
           isConfirming: false,
           errorMessage: "Network issue while confirming transfer. Please retry.",
         });
+        toast.error("Network issue while confirming transfer.");
       }
     } else {
       set({
@@ -293,6 +311,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
           errorMessage: errorResult.message ?? "Could not finalize transfer. Please retry.",
           step: TRANSFER_STEPS.review,
         });
+        toast.error(errorResult.message ?? "Could not finalize transfer.");
         return;
       }
 
@@ -303,6 +322,7 @@ export const useTransferStore = create<TransferState>((set, get) => ({
         }
         return {
           ...result.transfer,
+          senderNote: result.transfer.senderNote ?? transfer.senderNote,
           notificationChannels: result.transfer.notificationChannels ?? transfer.notificationChannels,
           notificationStatus: result.transfer.notificationStatus ?? transfer.notificationStatus,
           notificationNote: result.transfer.notificationNote ?? transfer.notificationNote,
@@ -316,12 +336,14 @@ export const useTransferStore = create<TransferState>((set, get) => ({
         sessionTransfers: nextTransfers,
         step: TRANSFER_STEPS.success,
       });
+      toast.success("Transfer complete");
     } catch {
       set({
         isFinalizing: false,
         errorMessage: "Network issue while finalizing transfer. Please retry.",
         step: TRANSFER_STEPS.review,
       });
+      toast.error("Network issue while finalizing transfer.");
     }
   },
 
@@ -338,5 +360,6 @@ export const useTransferStore = create<TransferState>((set, get) => ({
       isFinalizing: false,
       requiresServerFinalize: false,
       errorMessage: null,
+      transferNote: "",
     }),
 }));

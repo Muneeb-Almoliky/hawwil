@@ -4,6 +4,7 @@ import { useTransferStore, TRANSFER_STEPS } from "./store";
 import { convert } from "@/lib/fx";
 import { formatMoney } from "@/lib/format";
 import { Loader2, ShieldCheck } from "lucide-react";
+import { TRANSFER_NOTE_MAX_LEN } from "@/lib/transfer-note";
 
 function getInitials(name: string): string {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("");
@@ -23,6 +24,8 @@ export function StepReview({ senderName, senderCountry }: StepReviewProps) {
   const goTo = useTransferStore((s) => s.goTo);
   const clearError = useTransferStore((s) => s.clearError);
   const confirm = useTransferStore((s) => s.confirm);
+  const transferNote = useTransferStore((s) => s.transferNote);
+  const setTransferNote = useTransferStore((s) => s.setTransferNote);
 
   const conversion =
     recipient && amountSar > 0
@@ -105,6 +108,24 @@ export function StepReview({ senderName, senderCountry }: StepReviewProps) {
             </div>
           </div>
         )}
+
+        <label className="flex flex-col gap-2 rounded-2xl border border-stone-200 bg-white shadow-sm p-4">
+          <span className="text-xs font-semibold uppercase tracking-widest text-stone-400">
+            Note for your records (optional)
+          </span>
+          <textarea
+            name="transferNote"
+            value={transferNote}
+            onChange={(e) => setTransferNote(e.target.value.slice(0, TRANSFER_NOTE_MAX_LEN))}
+            maxLength={TRANSFER_NOTE_MAX_LEN}
+            rows={3}
+            placeholder="e.g. Rent, gift, family support"
+            className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-950 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 resize-none"
+          />
+          <span className="text-[10px] text-stone-400 tabular-nums">
+            {transferNote.length}/{TRANSFER_NOTE_MAX_LEN}
+          </span>
+        </label>
 
         {/* Trust assurance */}
         <div className="flex items-center gap-2.5 rounded-2xl border border-stone-100 bg-stone-50 px-4 py-3">

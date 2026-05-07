@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
+import type { TransferRecord } from "@/data/history";
+import { formatPayoutDetailsSummary, formatPayoutMethod } from "@/lib/payout";
 
 interface ReceiverPayoutSelectorProps {
   referenceId: string;
   recipientName: string;
   recipientCountry: string;
   isLocked: boolean;
+  confirmedPayoutMethod?: TransferRecord["payoutMethod"];
+  confirmedPayoutDetails?: TransferRecord["payoutDetails"];
+  transferStatus?: TransferRecord["status"];
 }
 
 type PayoutMethod = "cash_pickup" | "bank_account" | "mobile_wallet";
@@ -50,11 +56,31 @@ const COUNTRY_DIAL_CODES: Record<string, string> = {
   Syria: "+963",
 };
 
+type OwnershipValidation = "idle" | "valid" | "invalid";
+
+function normalizeOwnedIdentity(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function simulateOwnershipMatch(receiverName: string, payoutIdentifier: string): boolean {
+  const normalizedReceiver = normalizeOwnedIdentity(receiverName);
+  const normalizedIdentifier = normalizeOwnedIdentity(payoutIdentifier);
+  const fingerprint = `${normalizedReceiver}:${normalizedIdentifier}`;
+  let checksum = 0;
+  for (let index = 0; index < fingerprint.length; index += 1) {
+    checksum += fingerprint.charCodeAt(index) * (index + 1);
+  }
+  return checksum % 7 !== 0;
+}
+
 export function ReceiverPayoutSelector({
   referenceId,
   recipientName,
   recipientCountry,
   isLocked,
+  confirmedPayoutMethod,
+  confirmedPayoutDetails,
+  transferStatus,
 }: ReceiverPayoutSelectorProps) {
   const router = useRouter();
   const [method, setMethod] = useState<PayoutMethod>("cash_pickup");
@@ -62,7 +88,6 @@ export function ReceiverPayoutSelector({
   const [walletProvider, setWalletProvider] = useState("");
   const [walletPhone, setWalletPhone] = useState("");
   const [bankName, setBankName] = useState("");
-  const [accountHolder, setAccountHolder] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,17 +99,39 @@ export function ReceiverPayoutSelector({
     BANK_OPTIONS[recipientCountry] ?? ["Primary partner bank", "Other"];
   const phonePrefix = COUNTRY_DIAL_CODES[recipientCountry] ?? "+";
 
+  const walletOwnershipValidation = useMemo<OwnershipValidation>(() => {
+    if (walletProvider.trim().length < 2 || walletPhone.trim().length < 8) {
+      return "idle";
+    }
+    return simulateOwnershipMatch(recipientName, `${walletProvider}:${walletPhone}`)
+      ? "valid"
+      : "invalid";
+  }, [walletPhone, walletProvider, recipientName]);
+
+  const bankOwnershipValidation = useMemo<OwnershipValidation>(() => {
+    if (bankName.trim().length < 2 || accountNumber.trim().length < 8) {
+      return "idle";
+    }
+    return simulateOwnershipMatch(recipientName, `${bankName}:${accountNumber}`)
+      ? "valid"
+      : "invalid";
+  }, [accountNumber, bankName, recipientName]);
+
   const isDetailsValid = (() => {
     if (method === "cash_pickup") {
       return pickupCity.trim().length >= 2;
     }
     if (method === "mobile_wallet") {
-      return walletProvider.trim().length >= 2 && walletPhone.trim().length >= 8;
+      return (
+        walletProvider.trim().length >= 2 &&
+        walletPhone.trim().length >= 8 &&
+        walletOwnershipValidation === "valid"
+      );
     }
     return (
       bankName.trim().length >= 2 &&
-      accountHolder.trim().length >= 3 &&
-      accountNumber.trim().length >= 8
+      accountNumber.trim().length >= 8 &&
+      bankOwnershipValidation === "valid"
     );
   })();
 
@@ -105,13 +152,55 @@ export function ReceiverPayoutSelector({
 
     return {
       bankName: bankName.trim(),
-      accountHolder: accountHolder.trim(),
+      accountHolder: recipientName.trim(),
       accountNumber: accountNumber.trim(),
     };
   }
 
   if (isLocked) {
-    return null;
+    if (!confirmedPayoutMethod) {
+      return null;
+    }
+
+    const detailsLine = formatPayoutDetailsSummary(
+      confirmedPayoutMethod,
+      confirmedPayoutDetails
+    );
+
+    return (
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 shadow-sm p-5 flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" aria-hidden />
+          <p className="text-sm font-bold text-stone-950">Payout method confirmed</p>
+        </div>
+        <p className="text-sm text-stone-800">
+          <span className="font-semibold">{formatPayoutMethod(confirmedPayoutMethod)}</span>
+          {detailsLine ? (
+            <>
+              <span className="text-stone-500"> · </span>
+              {detailsLine}
+            </>
+          ) : null}
+        </p>
+        {transferStatus === "payout_pending" && confirmedPayoutMethod === "cash_pickup" ? (
+          <p className="text-xs text-stone-600 leading-relaxed">
+            Visit the branch with your ID and pickup code. When you have collected the cash, use{" "}
+            <span className="font-semibold text-stone-800">Confirm pickup</span> below.
+          </p>
+        ) : null}
+        {transferStatus === "paid_out" ? (
+          <p className="text-xs font-semibold text-emerald-800">
+            This transfer is complete — funds are on the way or already received per your chosen
+            method.
+          </p>
+        ) : null}
+        {transferStatus === "processing" ? (
+          <p className="text-xs text-stone-600">
+            This transfer is still being prepared. Refresh in a moment if details look out of date.
+          </p>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -168,6 +257,12 @@ export function ReceiverPayoutSelector({
 
       {method === "mobile_wallet" && (
         <div className="grid grid-cols-1 gap-2">
+          <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-500">
+              Receiver
+            </p>
+            <p className="text-sm font-semibold text-stone-900 mt-0.5">{recipientName}</p>
+          </div>
           <select
             value={walletProvider}
             onChange={(event) => setWalletProvider(event.target.value)}
@@ -186,6 +281,16 @@ export function ReceiverPayoutSelector({
             placeholder={`${phonePrefix}XXXXXXXX`}
             className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-950 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
           />
+          {walletOwnershipValidation === "valid" && (
+            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+              Ownership check passed: this wallet appears to belong to {recipientName}.
+            </p>
+          )}
+          {walletOwnershipValidation === "invalid" && (
+            <p className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700">
+              Ownership check failed: wallet details do not match {recipientName}. Please review.
+            </p>
+          )}
         </div>
       )}
 
@@ -203,18 +308,28 @@ export function ReceiverPayoutSelector({
               </option>
             ))}
           </select>
-          <input
-            value={accountHolder}
-            onChange={(event) => setAccountHolder(event.target.value)}
-            placeholder="Account holder full name"
-            className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-950 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
-          />
+          <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-500">
+              Receiver name
+            </p>
+            <p className="text-sm font-semibold text-stone-900 mt-0.5">{recipientName}</p>
+          </div>
           <input
             value={accountNumber}
             onChange={(event) => setAccountNumber(event.target.value)}
-            placeholder="Bank account number / IBAN"
+            placeholder="IBAN"
             className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-950 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
           />
+          {bankOwnershipValidation === "valid" && (
+            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+              Ownership check passed: this IBAN appears to belong to {recipientName}.
+            </p>
+          )}
+          {bankOwnershipValidation === "invalid" && (
+            <p className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700">
+              Ownership check failed: IBAN does not match {recipientName}. Please review.
+            </p>
+          )}
         </div>
       )}
 

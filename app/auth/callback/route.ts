@@ -18,14 +18,21 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/home", url.origin));
   }
 
-  if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      return NextResponse.redirect(
-        new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin)
-      );
-    }
+  if (!code) {
+    return NextResponse.redirect(
+      new URL(
+        `/login?error=${encodeURIComponent("Sign-in link is missing or expired. Try signing in again.")}`,
+        url.origin
+      )
+    );
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin)
+    );
   }
 
   return NextResponse.redirect(new URL(next, url.origin));

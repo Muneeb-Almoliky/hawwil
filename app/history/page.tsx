@@ -7,6 +7,8 @@ import { formatMoney } from "@/lib/format";
 import { formatPayoutDetailsSummary, formatPayoutMethod } from "@/lib/payout";
 import type { CorridorCurrency } from "@/data/recipients";
 import { getAuthenticatedProfile, getUserTransfers } from "@/lib/data-access";
+import { TransferHistoryExportActions } from "@/components/TransferHistoryExportActions";
+import { TransferReceiptDownload } from "@/components/TransferReceiptDownload";
 
 const PAGE_SIZE = 10;
 
@@ -120,14 +122,19 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
       <BrandHeader />
 
       <div className="flex flex-col gap-6 flex-1">
-        <div className="flex flex-col gap-1">
-          <h1
-            className="text-3xl font-black text-stone-950 tracking-tight"
-            tabIndex={-1}
-          >
-            Transfer history
-          </h1>
-          <p className="text-sm text-stone-400">Your recent transactions</p>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex flex-col gap-1 min-w-0">
+            <h1
+              className="text-3xl font-black text-stone-950 tracking-tight"
+              tabIndex={-1}
+            >
+              Transfer history
+            </h1>
+            <p className="text-sm text-stone-400">
+              Your recent transactions — export everything you have on file as PDF or CSV.
+            </p>
+          </div>
+          <TransferHistoryExportActions />
         </div>
 
         <ul className="flex flex-col gap-3">
@@ -170,8 +177,13 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
                       {payoutDetailsSummary}
                     </p>
                   )}
+                  {record.senderNote ? (
+                    <p className="text-xs text-stone-500 mt-1">
+                      Note: {record.senderNote}
+                    </p>
+                  ) : null}
                 </div>
-                <div className="text-right shrink-0">
+                <div className="text-right shrink-0 flex flex-col items-end gap-2">
                   <p className="text-sm font-black text-stone-950 tabular-nums">
                     {formatMoney(record.amountSar, "SAR")} SAR
                   </p>
@@ -186,6 +198,9 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
                     )}{" "}
                     {record.receiverCurrency}
                   </p>
+                  {!isSession ? (
+                    <TransferReceiptDownload referenceId={record.referenceId} label="PDF receipt" />
+                  ) : null}
                 </div>
               </li>
             );

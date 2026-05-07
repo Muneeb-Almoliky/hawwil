@@ -1,14 +1,19 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { isEmailVerified } from "@/lib/auth/email-verification";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase/env";
 
-const PROTECTED_PREFIXES = ["/home", "/transfer", "/history", "/ops"];
+const PROTECTED_PREFIXES = ["/home", "/transfer", "/history", "/ops", "/schedules"];
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
+}
+
+function isVerifyEmailPath(pathname: string): boolean {
+  return pathname === "/verify-email" || pathname.startsWith("/verify-email/");
 }
 
 export async function proxy(request: NextRequest) {
@@ -28,23 +33,19 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabasePublishableKey,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value);
-            response.cookies.set(name, value, options);
-          });
-        },
+  const supabase = createServerClient(supabaseUrl, supabasePublishableKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
       },
-    }
-  );
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          request.cookies.set(name, value);
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
 
   const {
     data: { user },
@@ -54,11 +55,27 @@ export async function proxy(request: NextRequest) {
   if (!user && isProtectedPath(pathname)) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("next", pathname);
+    redirectUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (user && pathname === "/login") {
+  if (
+    user &&
+    !isEmailVerified(user) &&
+    isProtectedPath(pathname) &&
+    !isVerifyEmailPath(pathname)
+  ) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/verify-email";
+    redirectUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (
+    user &&
+    isEmailVerified(user) &&
+    (pathname === "/login" || pathname === "/signup")
+  ) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/home";
     redirectUrl.searchParams.delete("next");

@@ -89,6 +89,19 @@ function getReceiverStatusLabel(status: ReceiverLookupPayload["status"]): string
   return "Processing";
 }
 
+function getReceiverHeroSubline(record: ReceiverLookupPayload): string {
+  if (record.status === "paid_out" || record.pickedUpAt) {
+    return `Paid out to ${record.recipientName} in ${record.recipientCountry}`;
+  }
+  if (record.status === "payout_pending") {
+    return `Cash pickup in progress for ${record.recipientName} in ${record.recipientCountry}`;
+  }
+  if (record.status === "recipient_action_required") {
+    return `${record.recipientName} — choose how to receive in ${record.recipientCountry}`;
+  }
+  return `Transfer for ${record.recipientName} in ${record.recipientCountry}`;
+}
+
 export default async function ReceiverLookupPage({
   params,
   searchParams,
@@ -151,9 +164,7 @@ export default async function ReceiverLookupPage({
                 {formatMoney(record.receiverAmount, record.receiverCurrency)}
                 <span className="text-base font-bold ml-1">{record.receiverCurrency}</span>
               </p>
-              <p className="text-sm text-emerald-800 mt-1">
-                paid out to {record.recipientName} in {record.recipientCountry}
-              </p>
+              <p className="text-sm text-emerald-800 mt-1">{getReceiverHeroSubline(record)}</p>
             </div>
 
             <div className="rounded-2xl border border-stone-200 bg-white shadow-sm p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -210,6 +221,9 @@ export default async function ReceiverLookupPage({
                   recipientName={record.recipientName}
                   recipientCountry={record.recipientCountry}
                   isLocked={record.status !== "recipient_action_required"}
+                  confirmedPayoutMethod={record.payoutMethod}
+                  confirmedPayoutDetails={record.payoutDetails}
+                  transferStatus={record.status}
                 />
 
                 <ReceiverClaimCard

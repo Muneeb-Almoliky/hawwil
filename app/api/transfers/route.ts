@@ -3,14 +3,16 @@ import type { TransferRecord } from "@/data/history";
 import type { CorridorCurrency } from "@/data/recipients";
 import { convert } from "@/lib/fx";
 import { sendPickupNotifications } from "@/lib/notifications";
-import { createClient } from "@/lib/supabase/server";
+import { requireVerifiedUser } from "@/lib/auth/require-verified-user";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { normalizeTransferNote } from "@/lib/transfer-note";
 
 export const runtime = "nodejs";
 
 interface CreateTransferPayload {
   recipientId: string;
   amountSar: number;
+  senderNote?: string;
 }
 
 function generateReferenceId(): string {
@@ -44,6 +46,7 @@ export async function POST(request: Request) {
   }
 
   const amountSar = asNumber(payload.amountSar);
+  const senderNote = normalizeTransferNote(payload.senderNote) ?? null;
 
   if (amountSar < 1) {
     return NextResponse.json(
@@ -53,19 +56,11 @@ export async function POST(request: Request) {
   }
 
   const referenceId = generateReferenceId();
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json(
-      { code: "UNAUTHORIZED", message: "Please sign in again." },
-      { status: 401 }
-    );
+  const auth = await requireVerifiedUser();
+  if ("response" in auth) {
+    return auth.response;
   }
+  const { user, supabase } = auth;
 
   const { data: recipient, error: recipientError } = await supabase
     .from("recipients")
@@ -121,6 +116,7 @@ export async function POST(request: Request) {
       p_settlement_usdc: settlementUsdc,
       p_settlement_partner: settlementPartner,
       p_route_reason: routeReason,
+      p_sender_note: senderNote,
     }
   );
 
@@ -167,6 +163,7 @@ export async function POST(request: Request) {
     settlementUsdc: asNumber(transferRow.settlement_usdc),
     settlementPartner: transferRow.settlement_partner ?? settlementPartner,
     routeReason: transferRow.route_reason ?? routeReason,
+    senderNote: normalizeTransferNote(transferRow.sender_note ?? undefined),
     notificationChannels: notification.channels,
     notificationStatus: notification.status,
     notificationNote: notification.note,

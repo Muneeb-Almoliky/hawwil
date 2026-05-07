@@ -4,7 +4,7 @@ import {
   maskPhone,
   type CorridorCurrency,
 } from "@/data/recipients";
-import { createClient } from "@/lib/supabase/server";
+import { requireVerifiedUser } from "@/lib/auth/require-verified-user";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 interface RecipientRecord {
@@ -28,14 +28,11 @@ export async function GET() {
     return NextResponse.json({ code: "SUPABASE_NOT_CONFIGURED", recipients: [] });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ code: "UNAUTHORIZED", message: "Please sign in again." }, { status: 401 });
+  const auth = await requireVerifiedUser();
+  if ("response" in auth) {
+    return auth.response;
   }
+  const { user, supabase } = auth;
 
   const { data, error } = await supabase
     .from("recipients")
@@ -68,14 +65,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ code: "UNAUTHORIZED", message: "Please sign in again." }, { status: 401 });
+  const auth = await requireVerifiedUser();
+  if ("response" in auth) {
+    return auth.response;
   }
+  const { user, supabase } = auth;
 
   let payload: CreateRecipientPayload;
   try {
