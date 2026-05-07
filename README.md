@@ -2,7 +2,17 @@
 
 Hawwil is a cross-border remittance app designed for GCC workers sending to Arab corridors, with transparent fees, fixed FX rates, and instant payout visibility.
 
+> **Note:** This project was built as a participation in **SalamHack 2026** (Track 1: Sending & Receiving Money).
 
+## SalamHack 2026 Sandbox Assumptions
+
+To avoid over-engineering legal compliance during the hackathon, Hawwil operates under these provided assumptions:
+
+1. **Virtual License:** We hold a Central Bank Regulatory Sandbox License.
+2. **Verified Users:** All users have passed KYC/AML.
+3. **Fixed FX Rates:** We use fixed hackathon rates (1 SAR = 140 YER / 0.19 JOD / 13 EGP / 3,400 SYP).
+4. **Instant Settlement:** Cross-border settlement is instant.
+5. **Pre-Funded Liquidity:** Payout pools are already funded in destination countries.
 
 ## Tech Stack
 
@@ -10,12 +20,19 @@ Hawwil is a cross-border remittance app designed for GCC workers sending to Arab
 - Supabase Auth (magic link + password)
 - Supabase Postgres + RLS
 - Zustand for transfer wizard state
+- Tailwind CSS v4 + shadcn/ui + lucide-react
 
 ## What is implemented
 
-- Authenticated sender flow (`/login`, `/home`, `/transfer`)
+- Authenticated sender flow (`/login`, `/signup`, `/home`, `/transfer`)
+- Self-serve user registration and email verification
+- Instant P2P transfers between Hawwil accounts via email lookup and QR code scanning
 - Persisted transfers with dynamic balance debiting
-- Receiver lookup (`/r/<referenceId>`) and internal operations console (`/ops`)
+- Scheduled and recurring remittances (`/schedules`)
+- Transfer history with PDF receipt downloads and CSV exports (`/history`)
+- Real-time receiver notifications via Twilio (SMS & WhatsApp)
+- Interactive receiver portal (`/r/<referenceId>`) where recipients can choose their preferred payout method
+- Internal operations console (`/ops`)
 
 ## Setup
 
@@ -36,10 +53,12 @@ Hawwil is a cross-border remittance app designed for GCC workers sending to Arab
 ## Useful Routes
 
 - `/` welcome
-- `/login` auth
+- `/login` auth (password & magic link)
+- `/signup` account creation
 - `/home` sender dashboard
 - `/transfer` transfer wizard
-- `/history` sender history
+- `/schedules` recurring remittance manager
+- `/history` sender history & exports
 - `/ops` internal operations console
 - `/r/<referenceId>` public receiver lookup
 
