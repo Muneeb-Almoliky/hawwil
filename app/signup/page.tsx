@@ -37,7 +37,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
           </h1>
           <p className="text-sm text-stone-500 mt-1">
             {isConfirmationSent
-              ? "One more step: open the link we sent to finish setup."
+              ? "One more step: click the link in your email to activate your account."
               : "Start sending with your Hawwil account."}
           </p>
         </div>
@@ -46,21 +46,18 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
           <>
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 flex flex-col gap-4 text-sm text-emerald-700">
               <p>
-                Account created. We sent a verification link to{" "}
+                We sent a verification link to{" "}
                 <span className="font-semibold text-emerald-800">
                   {params.email ?? "your email"}
                 </span>
-                . After you verify, sign in with the password you chose.
+                . Click it and you&apos;ll be signed in automatically.
               </p>
-              <Link
-                href="/login?mode=password"
-                className="inline-flex items-center justify-center w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 transition-colors text-center"
-              >
-                Continue to sign in
-              </Link>
+              <p className="text-xs text-emerald-600">
+                The link expires in 1 hour. Check your spam folder if you don&apos;t see it.
+              </p>
             </div>
             <p className="text-sm text-stone-600">
-              Need a different email?{" "}
+              Wrong email?{" "}
               <Link href="/signup" className="font-semibold text-emerald-700 hover:text-emerald-800">
                 Start over
               </Link>

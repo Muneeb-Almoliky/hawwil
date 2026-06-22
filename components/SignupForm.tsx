@@ -9,8 +9,7 @@ export function SignupForm() {
     <form action={signUpAction} className="flex flex-col gap-4">
       <SignupFields />
       <p className="text-xs text-stone-500">
-        After you sign up, open the confirmation link in your email, then return here to sign in with
-        your password.
+        After signing up, click the link in your email — you&apos;ll be signed in automatically.
       </p>
       <SubmitButton
         pendingLabel="Creating account…"

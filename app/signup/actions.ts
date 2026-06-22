@@ -14,8 +14,17 @@ function mapSignupError(message: string): string {
   ) {
     return "Too many signup attempts. Please wait a minute and try again.";
   }
-  if (normalizedMessage.includes("already registered")) {
-    return "This email is already registered. Please sign in with your password.";
+  if (normalizedMessage.includes("already registered") || normalizedMessage.includes("user already exists")) {
+    return "An account with this email already exists. Sign in instead, or reset your password.";
+  }
+  if (normalizedMessage.includes("password should be at least") || normalizedMessage.includes("password is too short")) {
+    return "Your password is too short. Use at least 8 characters.";
+  }
+  if (normalizedMessage.includes("unable to validate email") || normalizedMessage.includes("invalid email")) {
+    return "That email address doesn\u2019t look right. Please check it and try again.";
+  }
+  if (normalizedMessage.includes("signups not allowed") || normalizedMessage.includes("signup is disabled")) {
+    return "Sign-ups are temporarily disabled. Please try again later.";
   }
   return message;
 }

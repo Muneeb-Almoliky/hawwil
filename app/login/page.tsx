@@ -19,7 +19,24 @@ function mapAuthError(message: string): string {
     normalizedMessage.includes("rate limit") ||
     normalizedMessage.includes("too many requests")
   ) {
-    return "Email rate limit exceeded. Wait a minute or sign in with password.";
+    return "Too many requests — wait a minute, then try again.";
+  }
+  // Supabase returns a generic security message when OTP is sent to an
+  // unregistered email. Surface something more actionable.
+  if (
+    normalizedMessage.includes("for security purposes") ||
+    normalizedMessage.includes("signups not allowed")
+  ) {
+    return "No account found for that email. Create one first, or sign in with a password.";
+  }
+  if (
+    normalizedMessage.includes("invalid login credentials") ||
+    normalizedMessage.includes("invalid email or password")
+  ) {
+    return "Incorrect email or password. Double-check and try again.";
+  }
+  if (normalizedMessage.includes("email not confirmed")) {
+    return "Please verify your email before signing in. Check your inbox for the confirmation link.";
   }
   return message;
 }
@@ -79,7 +96,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         );
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: passwordData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -92,11 +109,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         );
       }
 
-      const {
-        data: { user: signedInUser },
-      } = await supabase.auth.getUser();
-
-      if (signedInUser && !isEmailVerified(signedInUser)) {
+      // Use the user from the signIn response — no need for a second getUser() call.
+      if (passwordData.user && !isEmailVerified(passwordData.user)) {
         redirect(`/verify-email?next=${encodeURIComponent(nextPath)}`);
       }
 
